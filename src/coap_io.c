@@ -1234,7 +1234,7 @@ coap_io_prepare_io(coap_context_t *ctx,
           if (tls_timeout > 0 && (timeout == 0 || tls_timeout - now < timeout))
             timeout = tls_timeout - now;
         }
-        /* Check if any server large receives have timed out */
+        /* Check if any server large receives are missing blocks */
         if (s->lg_srcv) {
           if (coap_block_check_lg_srcv_timeouts(s, now, &s_timeout)) {
             if (timeout == 0 || s_timeout < timeout)
@@ -1254,6 +1254,15 @@ coap_io_prepare_io(coap_context_t *ctx,
             sockets[(*num_sockets)++] = &s->sock;
         }
 #endif /* ! COAP_EPOLL_SUPPORT */
+        /*
+         * Check if any server large transmits have hit MAX_PAYLOAD and need
+         * restarting
+         */
+        if (s->lg_xmit) {
+          s_timeout = coap_block_check_q_block2_xmit(s, now);
+          if (timeout == 0 || s_timeout < timeout)
+            timeout = s_timeout;
+        }
 release_1:
         coap_session_release(s);
       }
@@ -1323,7 +1332,7 @@ release_1:
         timeout = tls_timeout - now;
     }
 
-    /* Check if any client large receives have timed out */
+    /* Check if any client large receives are missing blocks */
     if (s->lg_crcv) {
       if (coap_block_check_lg_crcv_timeouts(s, now, &s_timeout)) {
         if (timeout == 0 || s_timeout < timeout)
@@ -1336,6 +1345,15 @@ release_1:
         if (timeout == 0 || s_timeout < timeout)
           timeout = s_timeout;
       }
+    }
+    /*
+     * Check if any client large transmits have hit MAX_PAYLOAD and need
+     * restarting
+     */
+    if (s->lg_xmit) {
+      s_timeout = coap_block_check_q_block1_xmit(s, now);
+      if (timeout == 0 || s_timeout < timeout)
+        timeout = s_timeout;
     }
 
 #ifndef COAP_EPOLL_SUPPORT

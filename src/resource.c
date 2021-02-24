@@ -992,6 +992,16 @@ coap_notify_observers(coap_context_t *context, coap_resource_t *r,
                                                          block.aszx)),
                                    buf);
         }
+        else if (coap_get_block_b(obs->session, obs->pdu, COAP_OPTION_Q_BLOCK2,
+                                  &block)) {
+          /* Will get updated later (e.g. M bit) if appropriate */
+          coap_add_option_internal(response, COAP_OPTION_Q_BLOCK2,
+                                   coap_encode_var_safe(buf, sizeof(buf),
+                                               ((0 << 4) |
+                                                (0 << 3) |
+                                                block.szx)),
+                                   buf);
+        }
 
         h = r->handler[obs->pdu->code - 1];
         assert(h);      /* we do not allow subscriptions if no
@@ -1029,8 +1039,19 @@ coap_notify_observers(coap_context_t *context, coap_resource_t *r,
         obs->non_cnt++;
       }
 
+      if (response->code == COAP_RESPONSE_CODE(205) &&
+          coap_get_block_b(obs->session, response, COAP_OPTION_Q_BLOCK2,
+                           &block) &&
+          block.m) {
+        query = coap_get_query(obs->pdu);
+        mid = coap_send_q_block2(obs->session, r, query, obs->pdu->code,
+                                 block, response, 1);
+        coap_delete_string(query);
+        goto finish;
+      }
       mid = coap_send_internal( obs->session, response );
 
+finish:
       if (COAP_INVALID_MID == mid) {
         coap_subscription_t *s;
         coap_log(LOG_DEBUG,

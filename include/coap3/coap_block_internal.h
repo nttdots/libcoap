@@ -30,6 +30,30 @@
  * @{
  */
 
+/* Internal use only and are dropped when setting block_mode */
+#define COAP_BLOCK_HAS_Q_BLOCK   0x40 /* Set when Q_BLOCK supported */
+#define COAP_BLOCK_PROBE_Q_BLOCK 0x80 /* Set when Q_BLOCK probing */
+
+#define set_block_mode_probe_q(block_mode) \
+  do { \
+    block_mode |= COAP_BLOCK_PROBE_Q_BLOCK; \
+    block_mode &= ~(COAP_BLOCK_TRY_Q_BLOCK | COAP_BLOCK_HAS_Q_BLOCK); \
+  } while (0)
+
+#define set_block_mode_has_q(block_mode) \
+  do { \
+    block_mode |= COAP_BLOCK_HAS_Q_BLOCK; \
+    block_mode &= ~(COAP_BLOCK_TRY_Q_BLOCK | COAP_BLOCK_PROBE_Q_BLOCK); \
+  } while (0)
+
+#define set_block_mode_drop_q(block_mode) \
+  do { \
+    block_mode &= ~(COAP_BLOCK_TRY_Q_BLOCK |\
+                    COAP_BLOCK_PROBE_Q_BLOCK |\
+                    COAP_BLOCK_HAS_Q_BLOCK | \
+                    COAP_BLOCK_USE_M_Q_BLOCK); \
+  } while (0)
+
 typedef enum {
   COAP_RECURSE_OK,
   COAP_RECURSE_NO
@@ -47,6 +71,8 @@ struct coap_lg_range {
 typedef struct coap_rblock_t {
   uint32_t used;
   uint32_t retry;
+  uint32_t processing_payload_set;
+  uint32_t latest_payload_set;
   struct coap_lg_range range[COAP_RBLOCK_CNT];
   coap_tick_t last_seen;
 } coap_rblock_t;
@@ -81,7 +107,8 @@ struct coap_lg_xmit_t {
   struct coap_lg_xmit_t *next;
   uint8_t blk_size;      /**< large block transmission size */
   uint16_t option;       /**< large block transmisson CoAP option */
-  int last_block;        /**< last acknowledged block number */
+  int last_block;        /**< last acknowledged block number Block1
+                              last transmitted Q-Block2 */
   const uint8_t *data;   /**< large data ptr */
   size_t length;         /**< large data length */
   size_t offset;         /**< large data next offset to transmit */
@@ -94,6 +121,7 @@ struct coap_lg_xmit_t {
   coap_tick_t last_sent; /**< Last time any data sent */
   coap_tick_t last_all_sent; /**< Last time all data sent or 0 */
   coap_tick_t last_obs; /**< Last time used (Observe tracking) or 0 */
+  coap_tick_t non_timeout_random_ticks; /** Used for Q-Block */
   coap_release_large_data_t release_func; /**< large data de-alloc function */
   void *app_ptr;         /**< applicaton provided ptr for de-alloc function */
 };
@@ -156,6 +184,11 @@ struct coap_lg_srcv_t {
 };
 #endif /* COAP_SERVER_SUPPORT */
 
+typedef enum {
+  COAP_SEND_SKIP_PDU,
+  COAP_SEND_INC_PDU
+} coap_send_pdu_t;
+
 #if COAP_CLIENT_SUPPORT
 coap_lg_crcv_t * coap_block_new_lg_crcv(coap_session_t *session,
                                         coap_pdu_t *pdu);
@@ -166,7 +199,24 @@ void coap_block_delete_lg_crcv(coap_session_t *session,
 int coap_block_check_lg_crcv_timeouts(coap_session_t *session,
                                       coap_tick_t now,
                                       coap_tick_t *tim_rem);
+
+coap_mid_t coap_send_q_block1(coap_session_t *session,
+                              coap_block_b_t block,
+                              coap_pdu_t *request,
+                              coap_send_pdu_t send_request);
+
+coap_tick_t coap_block_check_q_block1_xmit(coap_session_t *session,
+                                           coap_tick_t now);
+
+coap_mid_t coap_block_test_q_block(coap_session_t *session, coap_pdu_t *actual);
+
 #endif /* COAP_CLIENT_SUPPORT */
+
+coap_mid_t coap_send_q_blocks(coap_session_t *session,
+                              coap_lg_xmit_t *lg_xmit,
+                              coap_block_b_t block,
+                              coap_pdu_t *pdu,
+                              coap_send_pdu_t send_pdu);
 
 #if COAP_SERVER_SUPPORT
 void coap_block_delete_lg_srcv(coap_session_t *session,
@@ -175,6 +225,17 @@ void coap_block_delete_lg_srcv(coap_session_t *session,
 int coap_block_check_lg_srcv_timeouts(coap_session_t *session,
                                       coap_tick_t now,
                                       coap_tick_t *tim_rem);
+
+coap_tick_t coap_block_check_q_block2_xmit(coap_session_t *session,
+                                           coap_tick_t now);
+
+coap_mid_t coap_send_q_block2(coap_session_t *session,
+                              coap_resource_t *resource,
+                              const coap_string_t *query,
+                              coap_pdu_code_t request_method,
+                              coap_block_b_t block,
+                              coap_pdu_t *response,
+                              coap_send_pdu_t send_response);
 
 int coap_handle_request_send_block(coap_session_t *session,
                                    coap_pdu_t *pdu,
@@ -211,6 +272,13 @@ void coap_block_delete_lg_xmit(coap_session_t *session,
 int coap_block_check_lg_xmit_timeouts(coap_session_t *session,
                                       coap_tick_t now,
                                       coap_tick_t *tim_rem);
+
+int coap_block_drop_resp_q_block_xmit(coap_session_t *session,
+                                      coap_lg_xmit_t *lg_xmit);
+
+int coap_block_drop_resp_q_block2_crcv(coap_session_t *session,
+                                       coap_lg_crcv_t *lg_crcv,
+                                       coap_pdu_t *sent);
 
 /**
  * The function checks that the code in a newly formed lg_xmit created by

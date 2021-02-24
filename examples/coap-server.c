@@ -1191,6 +1191,8 @@ hnd_proxy_uri(coap_resource_t *resource COAP_UNUSED,
         break;
       case COAP_OPTION_BLOCK1:
       case COAP_OPTION_BLOCK2:
+      case COAP_OPTION_Q_BLOCK1:
+      case COAP_OPTION_Q_BLOCK2:
         /* These are not passed on */
         break;
       default:
@@ -1740,6 +1742,7 @@ proxy_response_handler(coap_session_t *session,
                                     coap_opt_length (option));
       break;
     case COAP_OPTION_BLOCK2:
+    case COAP_OPTION_Q_BLOCK2:
     case COAP_OPTION_SIZE2:
       break;
     default:

@@ -196,7 +196,11 @@ global:
   coap_session_get_context;
   coap_session_get_default_leisure;
   coap_session_get_ifindex;
+  coap_session_get_max_payloads;
   coap_session_get_max_retransmit;
+  coap_session_get_non_max_retransmit;
+  coap_session_get_non_receive_timeout;
+  coap_session_get_non_timeout;
   coap_session_get_nstart;
   coap_session_get_probing_rate;
   coap_session_get_proto;
@@ -216,8 +220,12 @@ global:
   coap_session_set_ack_timeout;
   coap_session_set_app_data;
   coap_session_set_default_leisure;
+  coap_session_set_max_payloads;
   coap_session_set_max_retransmit;
   coap_session_set_mtu;
+  coap_session_set_non_max_retransmit;
+  coap_session_set_non_receive_timeout;
+  coap_session_set_non_timeout;
   coap_session_set_no_observe_cancel;
   coap_session_set_nstart;
   coap_session_set_probing_rate;
