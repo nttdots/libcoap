@@ -130,6 +130,10 @@ typedef enum coap_request_t {
 #define COAP_OPTION_SIZE1          60 /* __N_E_U, uint,      0-4 B, RFC7252 */
 #define COAP_OPTION_NORESPONSE    258 /* _U-_E_U, uint,      0-1 B, RFC7967 */
 
+/* selected option types from draft-ietf-core-echo-request-tag */
+#define COAP_OPTION_ECHO          252 /* __N_E_U, opaque,   0-40 B, RFC???? */
+#define COAP_OPTION_RTAG          292 /* ___RE_U, opaque,    0-8 B, RFC???? */
+
 #define COAP_MAX_OPT            65535 /**< the highest option number we know */
 
 /* CoAP result codes (HTTP-Code / 100 * 40 + HTTP-Code % 100) */
@@ -220,6 +224,12 @@ typedef enum coap_pdu_signaling_proto_t {
 
 /* Content formats from RFC 8782 */
 #define COAP_MEDIATYPE_APPLICATION_DOTS_CBOR    271 /* application/dots+cbor */
+
+/* Content formats from draft-ietf-lake-edhoc TBC */
+#define COAP_MEDIATYPE_APPLICATION_EDHOC       1003 /* application/edhoc */
+
+/* Content formats from RFC 8613 */
+#define COAP_MEDIATYPE_APPLICATION_OSCORE     10001 /* application/oscore */
 
 /* Note that identifiers for registered media types are in the range 0-65535. We
  * use an unallocated type here and hope for the best. */

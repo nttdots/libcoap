@@ -215,7 +215,7 @@ typedef void (*coap_release_large_data_t)(coap_session_t *session,
  * Used for a client request.
  *
  * If the data spans multiple PDUs, then the data will get transmitted using
- * BLOCK1 option with the addition of the SIZE1 option.
+ * BLOCK1 option with the addition of the SIZE1 and RTAG options.
  * The underlying library will handle the transmission of the individual blocks.
  * Once the body of data has been transmitted (or a failure occurred), then
  * @p release_func (if not NULL) will get called so the application can

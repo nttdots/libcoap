@@ -76,6 +76,12 @@ typedef void (*coap_method_handler_t)
 #define COAP_RESOURCE_FLAGS_NOTIFY_NON_ALWAYS  0x4
 
 /**
+ * Force all large traffic to this resource to be presented as a single body
+ * to the request handler.
+ */
+#define COAP_RESOURCE_FLAGS_FORCE_SINGLE_BODY 0x8
+
+/**
  * Creates a new resource object and initializes the link field to the string
  * @p uri_path. This function returns the new coap_resource_t object.
  *
@@ -104,6 +110,15 @@ typedef void (*coap_method_handler_t)
  *
  *                  If flags is set to 0 then the
  *                  COAP_RESOURCE_FLAGS_NOTIFY_NON is considered.
+ *
+ *                 COAP_RESOURCE_FLAGS_NOTIFY_NON_ALWAYS
+ *                  If this flag is set, coap-observe notifications
+ *                  will always be sent non-confirmable.@n
+ *
+ *                 COAP_RESOURCE_FLAGS_FORCE_SINGLE_BODY
+ *                  If this flag is set, large bodies of data presented to
+ *                  the request handler will always be as a single body
+ *                  providing COAP_BLOCK_USE_LIBCOAP block mode is set.@n
  *
  * @return         A pointer to the new object or @c NULL on error.
  */

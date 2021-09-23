@@ -418,6 +418,28 @@ coap_remove_option(coap_pdu_t *pdu, coap_option_num_t number) {
   return 1;
 }
 
+static void
+check_repeatable(coap_option_num_t number)
+{
+  /* Validate that the option is repeatable */
+  switch (number) {
+  /* Ignore list of genuine repeatable */
+  case COAP_OPTION_IF_MATCH:
+  case COAP_OPTION_ETAG:
+  case COAP_OPTION_LOCATION_PATH:
+  case COAP_OPTION_URI_PATH:
+  case COAP_OPTION_URI_QUERY:
+  case COAP_OPTION_LOCATION_QUERY:
+  case COAP_OPTION_RTAG:
+    break;
+  default:
+    coap_log(LOG_INFO, "Option number %d is not defined as repeatable\n",
+             number);
+    /* Accepting it after warning as there may be user defineable options */
+    break;
+  }
+}
+
 size_t
 coap_insert_option(coap_pdu_t *pdu, coap_option_num_t number, size_t len,
                    const uint8_t *data) {
@@ -449,6 +471,9 @@ coap_insert_option(coap_pdu_t *pdu, coap_option_num_t number, size_t len,
   if (!coap_opt_parse(option, pdu->used_size - (option - pdu->token), &decode))
     return 0;
   opt_delta = opt_iter.number - number;
+  if (opt_delta == 0) {
+    check_repeatable(number);
+  }
 
   if (!coap_pdu_check_resize(pdu,
                          pdu->used_size + shift - shrink))
@@ -561,22 +586,7 @@ coap_add_option_internal(coap_pdu_t *pdu, coap_option_num_t number, size_t len,
   assert(pdu);
 
   if (number == pdu->max_opt) {
-    /* Validate that the option is repeatable */
-    switch (number) {
-    /* Ignore list of genuine repeatable */
-    case COAP_OPTION_IF_MATCH:
-    case COAP_OPTION_ETAG:
-    case COAP_OPTION_LOCATION_PATH:
-    case COAP_OPTION_URI_PATH:
-    case COAP_OPTION_URI_QUERY:
-    case COAP_OPTION_LOCATION_QUERY:
-      break;
-    default:
-      coap_log(LOG_INFO, "Option number %d is not defined as repeatable\n",
-               number);
-      /* Accepting it after warning as there may be user defineable options */
-      break;
-    }
+    check_repeatable(number);
   }
 
   if (COAP_PDU_IS_REQUEST(pdu) &&
@@ -947,7 +957,9 @@ coap_pdu_parse_opt_base(coap_pdu_t *pdu, uint16_t len) {
   case COAP_OPTION_PROXY_URI:     if (len < 1 || len > 1034) res = 0; break;
   case COAP_OPTION_PROXY_SCHEME:  if (len < 1 || len > 255) res = 0;  break;
   case COAP_OPTION_SIZE1:         if (len > 4) res = 0;               break;
+  case COAP_OPTION_ECHO:          if (len > 40) res = 0;              break;
   case COAP_OPTION_NORESPONSE:    if (len > 1) res = 0;               break;
+  case COAP_OPTION_RTAG:          if (len > 8) res = 0;               break;
   default:
     ;
   }

@@ -56,6 +56,9 @@ man-page-build: upg-page-build man-page-start
 		BASE=`basename $${FILE} | cut -d. -f 1` ;\
 		MANUAL=`egrep -B 1 "^====" $${FILE} | head -1` ;\
 		SUMMARY=`egrep -B 2 "^SYNOPSIS" $${FILE} | sed 's/coap-//g' | cut -d\- -f2 | cut -c2- | head -1` ;\
+		if [ -z "$${SUMMARY}" ] ; then \
+			SUMMARY=`egrep -B 2 "^DESCRIPTION" $${FILE} | sed 's/coap-//g' | cut -d\- -f2 | cut -c2- | head -1` ;\
+		fi ;\
 		## Build the manual insert page
 		echo "/// @page man_$${BASE} $${MANUAL}" > $(top_builddir)/doc/man_tmp/$${MANUAL}.dox ;\
 		echo "/// @htmlinclude $${BASE}.html $${MANUAL}" >> $(top_builddir)/doc/man_tmp/$${MANUAL}.dox ;\
@@ -65,7 +68,7 @@ man-page-build: upg-page-build man-page-start
 		echo "   <tr id=\"row_$${ID}_\"$${ROW_EVEN}>" >> $(top_builddir)/doc/man_tmp/manpage.dox ;\
 		echo "   <td class=\"entry\" align=\"left\"> @ref man_$${BASE} </td><td class=\"desc\" align=\"left\">$${MANUAL} - $${SUMMARY}</td>" >> $(top_builddir)/doc/man_tmp/manpage.dox ;\
 		echo "   </tr>" >> $(top_builddir)/doc/man_tmp/manpage.dox ;\
-		if [ -z $${ROW_EVEN} ] ; then \
+		if [ -z "$${ROW_EVEN}" ] ; then \
 			ROW_EVEN=" class=\"even\"" ;\
 		else \
 			ROW_EVEN= ;\
@@ -93,7 +96,7 @@ man-page-build: upg-page-build man-page-start
 		echo "   <tr id=\"row_$${ID}_\"$${ROW_EVEN}>" >> $(top_builddir)/doc/man_tmp/upgrading.dox ;\
 		echo "   <td class=\"entry\" align=\"left\"> @ref upg_$${CUPGRADE} </td><td class=\"desc\" align=\"left\">$${SUMMARY}</td>" >> $(top_builddir)/doc/man_tmp/upgrading.dox ;\
 		echo "   </tr>" >> $(top_builddir)/doc/man_tmp/upgrading.dox ;\
-		if [ -z $${ROW_EVEN} ] ; then \
+		if [ -z "$${ROW_EVEN}" ] ; then \
 			ROW_EVEN=" class=\"even\"" ;\
 		else \
 			ROW_EVEN= ;\

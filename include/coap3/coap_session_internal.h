@@ -86,7 +86,7 @@ struct coap_session_t {
   uint8_t read_header[8];           /**< storage space for header of incoming
                                          message header */
   size_t partial_read;              /**< if > 0 indicates number of bytes
-                                         already read for an incoming message */
+                                        already read for an incoming message */
   coap_pdu_t *partial_pdu;          /**< incomplete incoming pdu */
   coap_tick_t last_rx_tx;
   coap_tick_t last_tx_rst;
@@ -131,10 +131,25 @@ struct coap_session_t {
                                              1.5) */
   unsigned int dtls_timeout_count;      /**< dtls setup retry counter */
   int dtls_event;                       /**< Tracking any (D)TLS events on this
-                                             sesison */
+                                             session */
   uint8_t block_mode;             /**< Zero or more COAP_BLOCK_ or'd options */
+  uint8_t doing_first;            /**< Set if doing client's first request */
   uint8_t proxy_session;          /**< Set if this is an ongoing proxy session */
+#ifdef HAVE_OSCORE
+  uint8_t oscore_encryption;      /**< OSCORE is used for this session  */
+  oscore_recipient_ctx_t *recipient_ctx; /**< OSCORE recipient context
+                                              for session */
+  oscore_association_t *associations; /**< OSCORE set of response
+                                           associations */
+#endif /* HAVE_OSCORE */
+#ifdef HAVE_OSCORE_EDHOC
+  edhoc_ctx_t *edhoc_ctx;         /**< EDHOC startup information */
+#endif /* HAVE_OSCORE_EDHOC */
   uint64_t tx_token;              /**< Next token number to use */
+  uint64_t tx_rtag;               /**< Next Request-Tag number to use */
+  uint8_t echo[8];                /**< Echo value to send with next request */
+  uint32_t echo_len;              /**< Echo value length */
+  int echo_send;                  /**< Send Echo in next request */
 };
 
 #if COAP_SERVER_SUPPORT

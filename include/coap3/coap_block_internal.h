@@ -189,7 +189,8 @@ int coap_handle_request_put_block(coap_context_t *context,
 #endif /* COAP_SERVER_SUPPORT */
 
 #if COAP_CLIENT_SUPPORT
-int coap_handle_response_send_block(coap_session_t *session, coap_pdu_t *rcvd);
+int coap_handle_response_send_block(coap_session_t *session, coap_pdu_t *sent,
+                                    coap_pdu_t *rcvd);
 
 int coap_handle_response_get_block(coap_context_t *context,
                                    coap_session_t *session,

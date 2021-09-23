@@ -250,6 +250,174 @@ coap_digest_final(coap_digest_ctx_t *digest_ctx,
 }
 #endif /* COAP_SERVER_SUPPORT */
 
+#if defined(HAVE_OSCORE)
+
+int
+coap_oscore_is_supported(void) {
+  return 0;
+}
+
+int
+coap_oscore_group_is_supported(void) {
+  return 0;
+}
+
+/*
+ * These are currently just stub functions as no crypto support is
+ * provided.
+ * TODO Add in RIOT OS support etc.
+ */
+
+/*
+ * The struct cipher_algs and the function get_cipher_alg() are used to
+ * determine which cipher type to use for creating the required cipher
+ * suite object.
+ */
+static struct cipher_algs {
+  cose_alg_t alg;
+  u_int cipher_type;
+} ciphers[] = {
+ { COSE_Algorithm_AES_CCM_16_64_128, 1 },
+};
+
+static u_int
+get_cipher_alg(cose_alg_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(ciphers)/sizeof(struct cipher_algs); idx++) {
+    if (ciphers[idx].alg == alg)
+      return ciphers[idx].cipher_type;
+  }
+  coap_log(LOG_DEBUG, "get_cipher_alg: COSE cipher %d not supported\n", alg);
+  return 0;
+}
+
+/*
+ * The struct hmac_algs and the function get_hmac_alg() are used to
+ * determine which hmac type to use for creating the required hmac
+ * suite object.
+ */
+static struct hmac_algs {
+  cose_alg_t alg;
+  u_int hmac_type;
+} hmacs[] = {
+  { COSE_Algorithm_HMAC256_256, 1 },
+};
+
+static u_int
+get_hmac_alg(cose_alg_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(hmacs)/sizeof(struct hmac_algs); idx++) {
+    if (hmacs[idx].alg == alg)
+      return hmacs[idx].hmac_type;
+  }
+  coap_log(LOG_DEBUG, "get_hmac_alg: COSE hkdf %d not supported\n", alg);
+  return 0;
+}
+
+int
+coap_crypto_check_cipher_alg(cose_alg_t alg) {
+  return 0;
+  return get_cipher_alg(alg);
+}
+
+int
+coap_crypto_check_hkdf_alg(cose_alg_t alg) {
+  return 0;
+  return get_hmac_alg(alg);
+}
+
+int
+coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
+                         coap_bin_const_t *data,
+                         coap_bin_const_t *aad,
+                         uint8_t *result, size_t *max_result_len) {
+  (void)params;
+  (void)data;
+  (void)aad;
+  (void)result;
+  *max_result_len = 0;
+  return 0;
+}
+
+int
+coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
+                         coap_bin_const_t *data,
+                         coap_bin_const_t *aad,
+                         uint8_t *result, size_t *max_result_len) {
+  (void)params;
+  (void)data;
+  (void)aad;
+  (void)result;
+  *max_result_len = 0;
+  return 0;
+}
+
+int
+coap_crypto_hmac(cose_alg_t alg, coap_bin_const_t *key,
+                 coap_bin_const_t *data, coap_bin_const_t **hmac)
+{
+  (void)alg;
+  (void)key;
+  (void)data;
+  (void)hmac;
+  return 0;
+}
+
+#if defined(HAVE_OSCORE_GROUP)
+int
+coap_crypto_read_pem_private_key(const char *filename, uint8_t *priv,
+                                 size_t *len)
+{
+  (void)filename;
+  (void)priv;
+  (void)len;
+  return 0;
+}
+
+int
+coap_crypto_read_pem_public_key(const char *filename, uint8_t *pub,
+                                size_t *len)
+{
+  (void)filename;
+  (void)pub;
+  (void)len;
+  return 0;
+}
+
+int
+coap_crypto_sign(cose_curve_t curve,
+                 coap_binary_t *signature,
+                 coap_bin_const_t *ciphertext,
+                 coap_bin_const_t *private_key,
+                 coap_bin_const_t *public_key)
+{
+  (void)curve;
+  (void)signature;
+  (void)ciphertext;
+  (void)private_key;
+  (void)public_key;
+  return 0;
+}
+
+int
+coap_crypto_verify(cose_curve_t curve,
+                   coap_binary_t *signature,
+                   coap_bin_const_t *plaintext,
+                   coap_bin_const_t *public_key)
+{
+  (void)curve;
+  (void)signature;
+  (void)plaintext;
+  (void)public_key;
+  return 0;
+}
+
+#endif /* HAVE_OSCORE_GROUP */
+
+#endif /* HAVE_OSCORE */
+
 #else /* !HAVE_LIBTINYDTLS && !HAVE_OPENSSL && !HAVE_LIBGNUTLS */
 
 #ifdef __clang__

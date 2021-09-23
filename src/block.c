@@ -369,7 +369,7 @@ coap_add_data_large_internal(coap_session_t *session,
              "Size of large buffer restricted to 0x%x bytes\n", MAX_BLK_LEN);
     length = MAX_BLK_LEN;
   }
-  /* Determine the block size to use, adding in sensible options if needed */
+
   if (COAP_PDU_IS_REQUEST(pdu)) {
     coap_lg_xmit_t *q;
 
@@ -410,7 +410,11 @@ coap_add_data_large_internal(coap_session_t *session,
     }
   }
 
+  /* Determine the block size to use, adding in sensible options if needed */
   avail = pdu->max_size - pdu->used_size - pdu->hdr_size;
+#ifdef HAVE_OSCORE
+  avail -= coap_oscore_overhead(session, pdu);
+#endif /* HAVE_OSCORE */
   /* May need token of length 8, so account for this */
   avail -= (pdu->token_length < 8) ? 8 - pdu->token_length : 0;
   blk_size = coap_flsll((long long)avail) - 4 - 1;
@@ -494,6 +498,11 @@ coap_add_data_large_internal(coap_session_t *session,
                          coap_encode_var_safe(buf, sizeof(buf),
                                               (unsigned int)length),
                          buf);
+      coap_update_option(pdu,
+                         COAP_OPTION_RTAG,
+                         coap_encode_var_safe8(buf, sizeof(buf),
+                                               ++session->tx_rtag),
+                         buf);
     }
     else {
       /*
@@ -563,6 +572,9 @@ coap_add_data_large_internal(coap_session_t *session,
     avail = pdu->max_size - pdu->used_size - pdu->hdr_size;
     /* May need token of length 8, so account for this */
     avail -= (pdu->token_length < 8) ? 8 - pdu->token_length : 0;
+#ifdef HAVE_OSCORE
+    avail -= coap_oscore_overhead(session, pdu);
+#endif /* HAVE_OSCORE */
     if (avail < (ssize_t)chunk) {
       /* chunk size change down */
       if (avail < 16) {
@@ -1292,12 +1304,24 @@ coap_handle_request_put_block(coap_context_t *context,
     uint16_t fmt = fmt_opt ? coap_decode_var_bytes(coap_opt_value(fmt_opt),
                                         coap_opt_length(fmt_opt)) :
                              COAP_MEDIATYPE_TEXT_PLAIN;
+    coap_opt_t *rtag_opt = coap_check_option(pdu,
+                                             COAP_OPTION_RTAG,
+                                             &opt_iter);
+    size_t rtag_length = rtag_opt ? coap_opt_length(rtag_opt) : 0;
+    const uint8_t *rtag = rtag_opt ? coap_opt_value(rtag_opt) : NULL;
 
     total = size_opt ? coap_decode_var_bytes(coap_opt_value(size_opt),
                                         coap_opt_length(size_opt)) : 0;
     offset = block.num << (block.szx + 4);
 
     LL_FOREACH(session->lg_srcv, p) {
+      if (rtag_opt || p->rtag_set == 1) {
+        if (!(rtag_opt && p->rtag_set == 1))
+          continue;
+        if (p->rtag_length != rtag_length ||
+            memcmp(p->rtag, rtag, rtag_length) != 0)
+          continue;
+      }
       if (resource == p->resource) {
         break;
       }
@@ -1338,6 +1362,11 @@ coap_handle_request_put_block(coap_context_t *context,
         p->observe_length = min(coap_opt_length(observe), 3);
         memcpy(p->observe, coap_opt_value(observe), p->observe_length);
         p->observe_set = 1;
+      }
+      if (rtag_opt) {
+        p->rtag_length = (uint8_t)rtag_length;
+        memcpy(p->rtag, rtag, rtag_length);
+        p->rtag_set = 1;
       }
       p->body_data = NULL;
       LL_PREPEND(session->lg_srcv, p);
@@ -1474,6 +1503,94 @@ skip_app_handler:
 #endif /* COAP_SERVER_SUPPORT */
 
 #if COAP_CLIENT_SUPPORT
+static int
+check_freshness(coap_session_t *session, coap_pdu_t *rcvd, coap_pdu_t *sent,
+                coap_lg_xmit_t *lg_xmit, coap_lg_crcv_t *lg_crcv)
+{
+  /* Check for ECHO option for freshness */
+  coap_opt_iterator_t opt_iter;
+  coap_opt_t *opt = coap_check_option(rcvd, COAP_OPTION_ECHO, &opt_iter);
+
+  if (opt) {
+    if (sent || lg_xmit || lg_crcv) {
+      /* Need to retransmit original request with ECHO added */
+      coap_pdu_t *echo_pdu;
+      coap_mid_t mid;
+      const uint8_t *data;
+      size_t data_len;
+      int have_data = 0;
+      uint8_t ltoken[8];
+      size_t ltoken_len;
+      uint64_t token;
+
+      if (sent) {
+        if (coap_get_data(sent, &data_len, &data))
+          have_data = 1;
+      }
+      else if (lg_xmit) {
+        sent = &lg_xmit->pdu;
+        if (lg_xmit->length) {
+          size_t blk_size = (size_t)1 << (lg_xmit->blk_size + 4);
+          size_t offset = (lg_xmit->last_block + 1) * blk_size;
+          have_data = 1;
+          data = &lg_xmit->data[offset];
+          data_len = (lg_xmit->length - offset) > blk_size ? blk_size :
+                                                   lg_xmit->length - offset;
+        }
+      }
+      else /* lg_crcv */ {
+        sent = &lg_crcv->pdu;
+        if (coap_get_data(sent, &data_len, &data))
+          have_data = 1;
+      }
+      if (lg_xmit) {
+        token = STATE_TOKEN_FULL(lg_xmit->b.b1.state_token,
+                                 ++lg_xmit->b.b1.count);
+      }
+      else {
+        token = STATE_TOKEN_FULL(lg_crcv->state_token,
+                                 ++lg_crcv->retry_counter);
+      }
+      ltoken_len = coap_encode_var_safe8(ltoken, sizeof(token), token);
+      echo_pdu = coap_pdu_duplicate(sent, session, ltoken_len, ltoken, NULL);
+      if (!echo_pdu)
+        return 0;
+      if (!coap_insert_option(echo_pdu, COAP_OPTION_ECHO,
+                              coap_opt_length(opt), coap_opt_value(opt)))
+        goto no_sent;
+      if (have_data) {
+        coap_add_data(echo_pdu, data_len, data);
+      }
+
+      mid = coap_send_internal(session, echo_pdu);
+      if (mid == COAP_INVALID_MID)
+        goto no_sent;
+      return 1;
+    }
+    else {
+      /* Need to save ECHO value to add to next reansmission */
+no_sent:
+      session->echo_len = coap_opt_length(opt);
+      session->echo_send = 1;
+      memcpy(session->echo, coap_opt_value(opt), session->echo_len);
+    }
+  }
+  return 0;
+}
+
+static void
+track_echo(coap_session_t *session, coap_pdu_t *rcvd)
+{
+  coap_opt_iterator_t opt_iter;
+  coap_opt_t *opt = coap_check_option(rcvd, COAP_OPTION_ECHO, &opt_iter);
+
+  if (opt) {
+    session->echo_len = coap_opt_length(opt);
+    session->echo_send = 1;
+    memcpy(session->echo, coap_opt_value(opt), session->echo_len);
+  }
+}
+
 /*
  * Need to see if this is a response to a large body request transfer. If so,
  * need to initiate the request containing the next block and not trouble the
@@ -1489,7 +1606,9 @@ skip_app_handler:
  *         1 Do not call application handler - just send the built response
  */
 int
-coap_handle_response_send_block(coap_session_t *session, coap_pdu_t *rcvd) {
+coap_handle_response_send_block(coap_session_t *session, coap_pdu_t *sent,
+                                coap_pdu_t *rcvd)
+{
   coap_lg_xmit_t *p;
   coap_lg_xmit_t *q;
   uint64_t token_match = STATE_TOKEN_BASE(coap_decode_var_bytes8(rcvd->token,
@@ -1533,6 +1652,7 @@ coap_handle_response_send_block(coap_session_t *session, coap_pdu_t *rcvd) {
              (p->offset + chunk) % ((size_t)1 << (block.szx + 4)));
         }
       }
+      track_echo(session, rcvd);
       if (p->last_block == (int)block.num) {
         /*
          * Duplicate BLOCK ACK
@@ -1577,6 +1697,10 @@ coap_handle_response_send_block(coap_session_t *session, coap_pdu_t *rcvd) {
           goto fail_body;
         return 1;
       }
+    }
+    else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
+      if (check_freshness(session, rcvd, sent, p, NULL))
+        return 1;
     }
 fail_body:
     if (session->lg_crcv) {
@@ -1668,10 +1792,11 @@ coap_block_build_body(coap_binary_t *body_data, size_t length,
  */
 int
 coap_handle_response_get_block(coap_context_t *context,
-                        coap_session_t *session,
-                        coap_pdu_t *sent,
-                        coap_pdu_t *rcvd,
-                        coap_recurse_t recursive) {
+                               coap_session_t *session,
+                               coap_pdu_t *sent,
+                               coap_pdu_t *rcvd,
+                               coap_recurse_t recursive)
+{
   coap_lg_crcv_t *p;
   int app_has_response = 0;
   coap_block_t block = {0, 0, 0};
@@ -1711,6 +1836,7 @@ coap_handle_response_get_block(coap_context_t *context,
         have_block = 1;
         block_opt = COAP_OPTION_BLOCK2;
       }
+      track_echo(session, rcvd);
       if (have_block) {
         coap_opt_t *fmt_opt = coap_check_option(rcvd,
                                             COAP_OPTION_CONTENT_FORMAT,
@@ -1947,6 +2073,17 @@ block_mode:
         }
       }
     }
+    else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
+#ifdef HAVE_OSCORE
+      if (check_freshness(session, rcvd,
+                          (session->oscore_encryption == 0) ? sent : NULL,
+                          NULL, p))
+#else /* !HAVE_OSCORE */
+      if (check_freshness(session, rcvd, sent, NULL, p))
+#endif /* !HAVE_OSCORE */
+        goto skip_app_handler;
+      goto fail_resp;
+    }
     if (!block.m && !p->observe_set) {
 fail_resp:
       /* lg_crcv no longer required - cache it */
@@ -1996,6 +2133,16 @@ fail_resp:
           }
           coap_block_delete_lg_crcv(session, lg_crcv);
         }
+      }
+      track_echo(session, rcvd);
+    }
+    else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
+      coap_lg_crcv_t *lg_crcv = coap_block_new_lg_crcv(session, sent);
+
+      if (lg_crcv) {
+        LL_PREPEND(session->lg_crcv, lg_crcv);
+        return coap_handle_response_get_block(context, session, sent, rcvd,
+                                              COAP_RECURSE_NO);
       }
     }
   }

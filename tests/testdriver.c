@@ -23,6 +23,7 @@
 #include "test_sendqueue.h"
 #include "test_wellknown.h"
 #include "test_tls.h"
+#include "test_oscore.h"
 
 int
 main(int argc COAP_UNUSED, char **argv COAP_UNUSED) {
@@ -48,6 +49,9 @@ main(int argc COAP_UNUSED, char **argv COAP_UNUSED) {
   t_init_wellknown_tests();
 #endif /* COAP_SERVER_SUPPORT && COAP_CLIENT_SUPPORT */
   t_init_tls_tests();
+#if HAVE_OSCORE && COAP_SERVER_SUPPORT
+  t_init_oscore_tests();
+#endif /* HAVE_OSCORE && COAP_CLIENT_SUPPORT */
 
   CU_basic_set_mode(run_mode);
   result = CU_basic_run_tests();

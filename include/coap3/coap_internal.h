@@ -62,14 +62,27 @@
 #include "coap_hashkey.h"
 #include "coap_mutex.h"
 
+/* Specific OSCORE general .h files */
+typedef struct oscore_ctx_t oscore_ctx_t;
+#include "oscore/oscore.h"
+#include "oscore/oscore_cbor.h"
+#include "oscore/oscore_cose.h"
+#include "oscore/oscore_context.h"
+#include "oscore/oscore_crypto.h"
+
+/* Specific OSCORE EDHOC .h files */
+#include "oscore/oscore_edhoc.h"
+
 /* Specifically defined internal .h files */
 #include "coap_asn1_internal.h"
 #include "coap_async_internal.h"
 #include "coap_block_internal.h"
 #include "coap_cache_internal.h"
+#include "coap_crypto_internal.h"
 #include "coap_dtls_internal.h"
 #include "coap_io_internal.h"
 #include "coap_net_internal.h"
+#include "coap_oscore_internal.h"
 #include "coap_pdu_internal.h"
 #include "coap_session_internal.h"
 #include "coap_resource_internal.h"

@@ -46,6 +46,7 @@ extern "C" {
 #include "coap@LIBCOAP_API_VERSION@/coap_dtls.h"
 #include "coap@LIBCOAP_API_VERSION@/coap_event.h"
 #include "coap@LIBCOAP_API_VERSION@/coap_io.h"
+#include "coap@LIBCOAP_API_VERSION@/coap_oscore.h"
 #include "coap@LIBCOAP_API_VERSION@/coap_prng.h"
 #include "coap@LIBCOAP_API_VERSION@/coap_time.h"
 #include "coap@LIBCOAP_API_VERSION@/encode.h"

@@ -238,6 +238,9 @@ void coap_session_mfree(coap_session_t *session) {
     coap_block_delete_lg_srcv(session, sq);
   }
 #endif /* COAP_SERVER_SUPPORT */
+#ifdef HAVE_OSCORE
+  coap_delete_oscore_associations(session);
+#endif /* HAVE_OSCORE */
 }
 
 void coap_session_free(coap_session_t *session) {

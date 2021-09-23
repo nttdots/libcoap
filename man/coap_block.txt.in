@@ -180,7 +180,7 @@ but supports the transmission of data that has a body size that is potentially
 larger than can be fitted into a single client request PDU. The specified
 payload _data_ of length _length_ is associated with the _session_ with the
 first block of data added to the PDU _pdu_ along with the appropriate CoAP
-options such as BLOCK1, and SIZE1 if the data does not fit in
+options such as BLOCK1, SIZE1 and RTAG if the data does not fit in
 a single PDU.
 
 When the block receipt has been acknowledged by the peer, the library

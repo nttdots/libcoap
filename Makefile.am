@@ -42,9 +42,11 @@ EXTRA_DIST = \
   include/coap$(LIBCOAP_API_VERSION)/coap_async_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_block_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_cache_internal.h \
+  include/coap$(LIBCOAP_API_VERSION)/coap_crypto_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_dtls_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_io_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_net_internal.h \
+  include/coap$(LIBCOAP_API_VERSION)/coap_oscore_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_pdu_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_resource_internal.h \
   include/coap$(LIBCOAP_API_VERSION)/coap_session_internal.h \
@@ -56,10 +58,24 @@ EXTRA_DIST = \
   include/coap$(LIBCOAP_API_VERSION)/lwippools.h \
   include/coap$(LIBCOAP_API_VERSION)/uthash.h \
   include/coap$(LIBCOAP_API_VERSION)/utlist.h \
+  include/oscore_group_crypto/ed25519.h \
+  include/oscore_group_crypto/edDSA_fe.h \
+  include/oscore_group_crypto/edDSA_fixedint.h \
+  include/oscore_group_crypto/edDSA_ge.h \
+  include/oscore_group_crypto/edDSA_precomp_data.h \
+  include/oscore_group_crypto/edDSA_sc.h \
+  include/oscore_group_crypto/sha512.h \
+  include/oscore/oscore_cbor.h \
+  include/oscore/oscore_context.h \
+  include/oscore/oscore_cose.h \
+  include/oscore/oscore_crypto.h \
+  include/oscore/oscore_edhoc.h \
+  include/oscore/oscore.h \
   src/coap_io_riot.c \
   tests/test_error_response.h \
   tests/test_encode.h \
   tests/test_options.h \
+  tests/test_oscore.h \
   tests/test_pdu.h \
   tests/test_sendqueue.h \
   tests/test_session.h \
@@ -78,6 +94,42 @@ EXTRA_DIST = \
   win32/testdriver/testdriver.vcxproj \
   win32/testdriver/testdriver.vcxproj.filters \
   win32/testdriver/testdriver.vcxproj.user
+
+# This is a mirror of files depending on HAVE_OSCORE included in src as per
+# libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES
+if !HAVE_OSCORE
+EXTRA_DIST += \
+  src/oscore/oscore.c \
+  src/oscore/oscore_cbor.c \
+  src/oscore/oscore_context.c \
+  src/oscore/oscore_cose.c \
+  src/oscore/oscore_crypto.c
+
+endif # !HAVE_OSCORE
+
+# This is a mirror of files depending on HAVE_OSCORE_GROUP included in src as per
+# libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES
+if !HAVE_OSCORE_GROUP
+EXTRA_DIST += \
+  src/oscore_group_crypto/edDSA_add_scalar.c \
+  src/oscore_group_crypto/edDSA_fe.c \
+  src/oscore_group_crypto/edDSA_ge.c \
+  src/oscore_group_crypto/edDSA_key_exchange.c \
+  src/oscore_group_crypto/edDSA_keypair.c \
+  src/oscore_group_crypto/edDSA_sc.c \
+  src/oscore_group_crypto/edDSA_sign.c \
+  src/oscore_group_crypto/edDSA_verify.c \
+  src/oscore_group_crypto/sha512.c
+
+endif # !HAVE_OSCORE_GROUP
+
+# This is a mirror of files depending on HAVE_OSCORE_EDHOC included in src as per
+# libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES
+if !HAVE_OSCORE_EDHOC
+EXTRA_DIST += \
+  src/oscore/oscore_edhoc.c
+
+endif # !HAVE_OSCORE_EDHOC
 
 AM_CFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include $(WARNING_CFLAGS) \
             $(DTLS_CFLAGS) -std=c99 $(EXTRA_CFLAGS) \
@@ -115,6 +167,7 @@ libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES = \
   src/coap_mbedtls.c \
   src/coap_notls.c \
   src/coap_openssl.c \
+  src/coap_oscore.c \
   src/coap_prng.c \
   src/coap_session.c \
   src/coap_tcp.c \
@@ -129,6 +182,36 @@ libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES = \
   src/str.c \
   src/subscribe.c \
   src/uri.c
+
+if HAVE_OSCORE
+libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES += \
+  src/oscore/oscore.c \
+  src/oscore/oscore_cbor.c \
+  src/oscore/oscore_context.c \
+  src/oscore/oscore_cose.c \
+  src/oscore/oscore_crypto.c
+
+endif # HAVE_OSCORE
+
+if HAVE_OSCORE_GROUP
+libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES += \
+  src/oscore_group_crypto/edDSA_add_scalar.c \
+  src/oscore_group_crypto/edDSA_fe.c \
+  src/oscore_group_crypto/edDSA_ge.c \
+  src/oscore_group_crypto/edDSA_key_exchange.c \
+  src/oscore_group_crypto/edDSA_keypair.c \
+  src/oscore_group_crypto/edDSA_sc.c \
+  src/oscore_group_crypto/edDSA_sign.c \
+  src/oscore_group_crypto/edDSA_verify.c \
+  src/oscore_group_crypto/sha512.c
+
+endif # HAVE_OSCORE_GROUP
+
+if HAVE_OSCORE_EDHOC
+libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES += \
+  src/oscore/oscore_edhoc.c
+
+endif # HAVE_OSCORE_EDHOC
 
 ## Define the list of public header files and their install location.
 ## The API version is appended to the install folder to being able to
@@ -154,6 +237,7 @@ libcoap_include_HEADERS = \
   $(top_srcdir)/include/coap$(LIBCOAP_API_VERSION)/coap_hashkey.h \
   $(top_srcdir)/include/coap$(LIBCOAP_API_VERSION)/coap_io.h \
   $(top_srcdir)/include/coap$(LIBCOAP_API_VERSION)/coap_mutex.h \
+  $(top_srcdir)/include/coap$(LIBCOAP_API_VERSION)/coap_oscore.h \
   $(top_srcdir)/include/coap$(LIBCOAP_API_VERSION)/coap_session.h \
   $(top_srcdir)/include/coap$(LIBCOAP_API_VERSION)/coap_time.h \
   $(top_srcdir)/include/coap$(LIBCOAP_API_VERSION)/encode.h \

@@ -222,6 +222,7 @@ void coap_dtls_shutdown(void) {
     ENGINE_free(ssl_engine);
     ssl_engine = NULL;
   }
+  ERR_free_strings();
 }
 
 void *
@@ -3505,6 +3506,732 @@ coap_digest_final(coap_digest_ctx_t *digest_ctx,
   return ret;
 }
 #endif /* COAP_SERVER_SUPPORT */
+
+#if defined(HAVE_OSCORE)
+
+int
+coap_oscore_is_supported(void) {
+  return 1;
+}
+
+int
+coap_oscore_group_is_supported(void) {
+#if defined(HAVE_OSCORE_GROUP)
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+  return 1;
+#else /* OPENSSL_VERSION_NUMBER < 0x10101000L */
+  return 0;
+#endif /* OPENSSL_VERSION_NUMBER < 0x10101000L */
+#else /* !HAVE_OSCORE_GROUP */
+  return 0;
+#endif /* !HAVE_OSCORE_GROUP */
+}
+
+int
+coap_oscore_edhoc_is_supported(void) {
+#if defined(HAVE_OSCORE_EDHOC)
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+  return 1;
+#else /* OPENSSL_VERSION_NUMBER < 0x10101000L */
+  return 0;
+#endif /* OPENSSL_VERSION_NUMBER < 0x10101000L */
+#else /* !HAVE_OSCORE_EDHOC */
+  return 0;
+#endif /* !HAVE_OSCORE_EDHOC */
+}
+
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+
+/*
+ * The struct cipher_algs and the function get_cipher_alg() are used to
+ * determine which cipher type to use for creating the required cipher
+ * suite object.
+ */
+static struct cipher_algs {
+  cose_alg_t alg;
+  const EVP_CIPHER *(*get_cipher)(void);
+} ciphers[] = {
+  { COSE_Algorithm_AES_CCM_16_64_128, EVP_aes_128_ccm },
+  { COSE_Algorithm_AES_CCM_16_64_256, EVP_aes_256_ccm }
+};
+
+static const EVP_CIPHER *
+get_cipher_alg(cose_alg_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(ciphers)/sizeof(struct cipher_algs); idx++) {
+    if (ciphers[idx].alg == alg)
+      return ciphers[idx].get_cipher();
+  }
+  coap_log(LOG_DEBUG, "get_cipher_alg: COSE cipher %d not supported\n", alg);
+  return NULL;
+}
+
+/*
+ * The struct hmac_algs and the function get_hmac_alg() are used to
+ * determine which hmac type to use for creating the required hmac
+ * suite object.
+ */
+static struct hmac_algs {
+  cose_alg_t alg;
+  const EVP_MD *(*get_hmac)(void);
+} hmacs[] = {
+  { COSE_Algorithm_HMAC256_256, EVP_sha256 },
+};
+
+static const EVP_MD *
+get_hmac_alg(cose_alg_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(hmacs)/sizeof(struct hmac_algs); idx++) {
+    if (hmacs[idx].alg == alg)
+      return hmacs[idx].get_hmac();
+  }
+  coap_log(LOG_DEBUG, "get_hmac_alg: COSE hmac %d not supported\n", alg);
+  return NULL;
+}
+
+#if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+
+/*
+ * The struct curve_algs and the function get_curve_alg() are used to
+ * determine which curve type to use for creating the required curve
+ * output object.
+ */
+static struct curve_algs {
+  cose_curve_t alg;
+  int get_curve;
+} curves[] = {
+  { COSE_curve_Ed25519, EVP_PKEY_ED25519 },
+  { COSE_curve_X25519, EVP_PKEY_X25519 },
+};
+
+static int
+get_curve_alg(cose_curve_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(curves)/sizeof(struct curve_algs); idx++) {
+    if (curves[idx].alg == alg)
+      return curves[idx].get_curve;
+  }
+  coap_log(LOG_DEBUG, "get_curve_alg: COSE curve %d not supported\n", alg);
+  return -1;
+}
+
+/*
+ * The struct hash_algs and the function get_hash_alg() are used to
+ * determine which hash type to use for creating the required hash object.
+ */
+static struct hash_algs {
+  cose_alg_t alg;
+  const EVP_MD *(*get_hash)(void);
+} hashs[] = {
+  { COSE_Algorithm_SHA_256_256, EVP_sha256 },
+  { COSE_Algorithm_SHA_512, EVP_sha512 },
+};
+
+static const EVP_MD *
+get_hash_alg(cose_alg_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(hashs)/sizeof(struct hash_algs); idx++) {
+    if (hashs[idx].alg == alg)
+      return hashs[idx].get_hash();
+  }
+  coap_log(LOG_DEBUG, "get_hash_alg: COSE hash %d not supported\n", alg);
+  return NULL;
+}
+
+int
+coap_crypto_check_curve_alg(cose_curve_t alg) {
+  return get_curve_alg(alg) != -1;
+}
+
+int
+coap_crypto_check_hash_alg(cose_alg_t alg) {
+  return get_hash_alg(alg) != NULL;
+}
+#endif /* OPENSSL_VERSION_NUMBER >= 0x10101000L */
+#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
+
+int
+coap_crypto_check_cipher_alg(cose_alg_t alg) {
+  return get_cipher_alg(alg) != NULL;
+}
+
+int
+coap_crypto_check_hkdf_alg(cose_alg_t alg) {
+  return get_hmac_alg(alg) != NULL;
+}
+
+#define C(Func) if (1 != (Func)) { goto error; }
+
+static void
+coap_crypto_output_errors(const char *prefix)
+{
+  unsigned long e;
+
+  while ((e = ERR_get_error()))
+    coap_log(LOG_WARNING, "%s: %s at %s:%s\n",
+             prefix,
+             ERR_reason_error_string(e),
+             ERR_lib_error_string(e), ERR_func_error_string(e));
+}
+
+int
+coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
+                         coap_bin_const_t *data,
+                         coap_bin_const_t *aad,
+                         uint8_t *result, size_t *max_result_len) {
+  const EVP_CIPHER *cipher;
+  const coap_crypto_aes_ccm_t *ccm;
+  int tmp;
+  int result_len = (int)(*max_result_len & INT_MAX);
+
+  if (data == NULL)
+    return 0;
+
+  assert(params != NULL);
+  if (!params || ((cipher = get_cipher_alg(params->alg)) == NULL)) {
+    return 0;
+  }
+
+  /* TODO: set evp_md depending on params->alg */
+  ccm = &params->params.aes;
+
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+
+  /* EVP_CIPHER_CTX_init(ctx); */
+  C(EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_L, (int)ccm->l, NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, (int)(15 - ccm->l),
+                        NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, (int)ccm->tag_len, NULL));
+  C(EVP_EncryptInit_ex(ctx, NULL, NULL, ccm->key.s, ccm->nonce));
+  /* C(EVP_CIPHER_CTX_set_padding(ctx, 0)); */
+
+  C(EVP_EncryptUpdate(ctx, NULL, &result_len, NULL, (int)data->length));
+  if (aad && aad->s && (aad->length > 0)) {
+    C(EVP_EncryptUpdate(ctx, NULL, &result_len, aad->s, (int)aad->length));
+  }
+  C(EVP_EncryptUpdate(ctx, result, &result_len, data->s, (int)data->length));
+  /* C(EVP_EncryptFinal_ex(ctx, result + result_len, &tmp)); */
+  tmp = result_len;
+  C(EVP_EncryptFinal_ex(ctx, result + result_len, &tmp));
+  result_len += tmp;
+
+  /* retrieve the tag */
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_GET_TAG, (int)ccm->tag_len,
+                        result + result_len));
+
+  *max_result_len = result_len + ccm->tag_len;
+  EVP_CIPHER_CTX_free(ctx);
+  return 1;
+
+error:
+  coap_crypto_output_errors("coap_crypto_aead_encrypt");
+  return 0;
+}
+
+int
+coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
+                         coap_bin_const_t *data,
+                         coap_bin_const_t *aad,
+                         uint8_t *result, size_t *max_result_len) {
+  const EVP_CIPHER *cipher;
+  const coap_crypto_aes_ccm_t *ccm;
+  int tmp;
+  int len;
+  const uint8_t *tag;
+  uint8_t *rwtag;
+
+  if (data == NULL)
+    return 0;
+
+  assert(params != NULL);
+  if (!params || ((cipher = get_cipher_alg(params->alg)) == NULL)) {
+    return 0;
+  }
+
+  ccm = &params->params.aes;
+
+  if (data->length < ccm->tag_len) {
+    return 0;
+  } else {
+    tag = data->s + data->length - ccm->tag_len;
+    data->length -= ccm->tag_len;
+    /* Kludge to stop compiler warning */
+    memcpy(&rwtag, &tag, sizeof(rwtag));
+  }
+
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+
+  C(EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, (int)(15 - ccm->l),
+                        NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, (int)ccm->tag_len, rwtag));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_L, (int)ccm->l, NULL));
+  /* C(EVP_CIPHER_CTX_set_padding(ctx, 0)); */
+  C(EVP_DecryptInit_ex(ctx, NULL, NULL, ccm->key.s, ccm->nonce));
+
+  C(EVP_DecryptUpdate(ctx, NULL, &len, NULL, (int)data->length));
+  if (aad && aad->s && (aad->length > 0)) {
+    C(EVP_DecryptUpdate(ctx, NULL, &len, aad->s, (int)aad->length));
+  }
+  tmp = EVP_DecryptUpdate(ctx, result, &len, data->s, (int)data->length);
+  EVP_CIPHER_CTX_free(ctx);
+  if (tmp <= 0) {
+    *max_result_len = 0;
+    return 0;
+  }
+  *max_result_len = len;
+  return 1;
+
+error:
+  coap_crypto_output_errors("coap_crypto_aead_decrypt");
+  return 0;
+}
+
+int
+coap_crypto_hmac(cose_alg_t alg, coap_bin_const_t *key,
+                 coap_bin_const_t *data, coap_bin_const_t **hmac)
+{
+  unsigned int result_len;
+  const EVP_MD *evp_md;
+  coap_binary_t *dummy = NULL;
+
+  assert(key);
+  assert(data);
+  assert(hmac);
+
+  if ((evp_md = get_hmac_alg(alg)) == 0) {
+    coap_log(LOG_DEBUG,
+             "coap_crypto_hmac: algorithm %d not supported\n", alg);
+    return 0;
+  }
+  dummy = coap_new_binary(EVP_MAX_MD_SIZE);
+  if (dummy == NULL)
+    return 0;
+  result_len = dummy->length;
+  if (HMAC(evp_md, key->s,
+           (int)key->length, data->s, (int)data->length, dummy->s,
+           &result_len)) {
+    dummy->length = result_len;
+    *hmac = (coap_bin_const_t *)dummy;
+    return 1;
+  }
+
+  coap_crypto_output_errors("coap_crypto_hmac");
+  return 0;
+}
+
+#if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
+
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+
+int
+coap_crypto_read_pem_private_key(const char *filename, uint8_t *priv,
+                                 size_t *len)
+{
+  BIO *in;
+  char *rw_var = NULL;
+  EVP_PKEY *priv_key = NULL;
+
+  in = BIO_new(BIO_s_file());
+  if (in == NULL)
+    goto error;
+
+  /* Need to do this to not get a compiler warning about const parameters */
+  memcpy(&rw_var, &filename, sizeof (rw_var));
+  if (BIO_read_filename(in, rw_var) != 1) {
+    goto error;
+  }
+
+  if ((priv_key = PEM_read_bio_PrivateKey(in, NULL, NULL, NULL)) == NULL)
+    goto error;
+
+  if (EVP_PKEY_get_raw_private_key(priv_key, priv, len) != 1)
+    goto error;
+
+  EVP_PKEY_free(priv_key);
+  BIO_free(in);
+  return 1;
+
+error:
+  if (in)
+    BIO_free(in);
+
+  coap_crypto_output_errors("coap_crypto_read_pem_private_key");
+  return 0;
+}
+
+int
+coap_crypto_read_pem_public_key(const char *filename, uint8_t *pub,
+                                size_t *len)
+{
+  BIO *in;
+  char *rw_var = NULL;
+  EVP_PKEY *pub_key = NULL;
+
+  in = BIO_new(BIO_s_file());
+  if (in == NULL)
+    goto error;
+
+  /* Need to do this to not get a compiler warning about const parameters */
+  memcpy(&rw_var, &filename, sizeof (rw_var));
+  if (BIO_read_filename(in, rw_var) != 1) {
+    goto error;
+  }
+
+  if ((pub_key = PEM_read_bio_PUBKEY(in, NULL, NULL, NULL)) == NULL) {
+
+    if (BIO_reset(in) != 0)
+      goto error;
+
+    if ((pub_key = PEM_read_bio_PrivateKey(in, NULL, NULL, NULL)) == NULL)
+      goto error;
+  }
+
+  if (EVP_PKEY_get_raw_public_key(pub_key, pub, len) != 1)
+    goto error;
+
+  EVP_PKEY_free(pub_key);
+  BIO_free(in);
+  return 1;
+
+error:
+  if (in)
+    BIO_free(in);
+
+  coap_crypto_output_errors("coap_crypto_read_pem_private_key");
+  return 0;
+}
+
+int
+coap_crypto_sign(cose_curve_t curve,
+                 coap_binary_t *signature,
+                 coap_bin_const_t *ciphertext,
+                 coap_bin_const_t *private_key,
+                 coap_bin_const_t *public_key)
+{
+  int key_type = get_curve_alg(curve);
+  EVP_PKEY *ed_key = NULL;
+  unsigned char *sig = NULL;
+  EVP_MD_CTX *md_ctx = NULL;
+
+  (void)public_key;
+  if (key_type == -1)
+    goto error;
+  ed_key = EVP_PKEY_new_raw_private_key(key_type, NULL, private_key->s,
+                                        private_key->length);
+  if (ed_key == NULL)
+    goto error;
+
+  md_ctx = EVP_MD_CTX_new();
+  if (EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, ed_key) != 1)
+    goto error;
+  /* Calculate the requires size for the signature by passing a NULL buffer */
+  if (EVP_DigestSign(md_ctx, NULL, &signature->length, ciphertext->s,
+                     ciphertext->length) != 1)
+    goto error;
+  if ((sig = OPENSSL_zalloc(signature->length)) == NULL)
+    goto error;
+
+  if (EVP_DigestSign(md_ctx, signature->s, &signature->length, ciphertext->s,
+                     ciphertext->length) != 1)
+    goto error;
+  OPENSSL_free(sig);
+  EVP_MD_CTX_free(md_ctx);
+  EVP_PKEY_free(ed_key);
+  return 1;
+
+error:
+  coap_crypto_output_errors("coap_crypto_sign");
+  if (sig)
+    OPENSSL_free(sig);
+  if (md_ctx)
+    EVP_MD_CTX_free(md_ctx);
+  if (ed_key)
+    EVP_PKEY_free(ed_key);
+  return 0;
+}
+
+int
+coap_crypto_verify(cose_curve_t curve,
+                   coap_binary_t *signature,
+                   coap_bin_const_t *plaintext,
+                   coap_bin_const_t *public_key)
+{
+  int key_type = get_curve_alg(curve);
+  EVP_PKEY *ed_key = NULL;
+  unsigned char *sig = NULL;
+  EVP_MD_CTX *md_ctx = NULL;
+
+  if (key_type == -1)
+    goto error;
+  ed_key = EVP_PKEY_new_raw_public_key(key_type, NULL, public_key->s,
+                                       public_key->length);
+  if (ed_key == NULL)
+    goto error;
+
+  md_ctx = EVP_MD_CTX_new();
+  if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, ed_key) != 1)
+    goto error;
+  if (EVP_DigestVerify(md_ctx, signature->s, signature->length, plaintext->s,
+                     plaintext->length) != 1)
+    goto error;
+  OPENSSL_free(sig);
+  EVP_MD_CTX_free(md_ctx);
+  EVP_PKEY_free(ed_key);
+  return 1;
+
+error:
+  coap_crypto_output_errors("coap_crypto_verify");
+  if (md_ctx)
+    EVP_MD_CTX_free(md_ctx);
+  if (ed_key)
+    EVP_PKEY_free(ed_key);
+  return 0;
+}
+
+int
+coap_crypto_gen_pkey(cose_curve_t curve, coap_bin_const_t **private,
+                     coap_bin_const_t **public)
+{
+  int key_type = get_curve_alg(curve);
+  EVP_PKEY_CTX *ctx = NULL;
+  EVP_PKEY *pkey = NULL;
+  size_t length;
+  coap_binary_t *dummy;
+
+  if (key_type == -1)
+    goto error;
+
+  ctx = EVP_PKEY_CTX_new_id(key_type, NULL);
+  if (ctx == NULL)
+    goto error;
+  if (EVP_PKEY_keygen_init(ctx) <= 0)
+    goto error;
+  if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
+    goto error;
+  if (private) {
+    if (EVP_PKEY_get_raw_private_key(pkey, NULL, &length) != 1)
+      goto error;
+    dummy = coap_new_binary(length);
+    if (dummy == NULL)
+      goto error;
+    if (EVP_PKEY_get_raw_private_key(pkey, dummy->s, &length) != 1)
+      goto error;
+    *private = (coap_bin_const_t*)dummy;
+  }
+  if (public) {
+    if (EVP_PKEY_get_raw_public_key(pkey, NULL, &length) != 1)
+      goto error;
+    dummy = coap_new_binary(length);
+    if (dummy == NULL)
+      goto error;
+    if (EVP_PKEY_get_raw_public_key(pkey, dummy->s, &length) != 1)
+      goto error;
+    *public = (coap_bin_const_t*)dummy;
+  }
+  EVP_PKEY_free(pkey);
+  EVP_PKEY_CTX_free(ctx);
+  return 1;
+
+error:
+  coap_crypto_output_errors("coap_crypto_gen_pkey");
+  if (pkey)
+    EVP_PKEY_free(pkey);
+  if (ctx)
+    EVP_PKEY_CTX_free(ctx);
+  return 0;
+}
+
+int
+coap_crypto_derive_shared_secret(cose_curve_t curve,
+                                 coap_bin_const_t *local_private,
+                                 coap_bin_const_t *peer_public,
+                                 coap_bin_const_t **shared_secret)
+{
+  int key_type = get_curve_alg(curve);
+  EVP_PKEY *evp_priv = NULL;
+  EVP_PKEY *evp_public = NULL;
+  EVP_PKEY_CTX *ctx = NULL;
+  size_t length;
+  coap_binary_t *dummy;
+
+  if (key_type == -1)
+    goto error;
+
+  evp_priv = EVP_PKEY_new_raw_private_key(key_type, NULL, local_private->s,
+                                          local_private->length);
+  if (evp_priv == NULL)
+    goto error;
+
+  evp_public = EVP_PKEY_new_raw_public_key(key_type, NULL, peer_public->s,
+                                           peer_public->length);
+  if (evp_public == NULL)
+    goto error;
+
+  ctx = EVP_PKEY_CTX_new(evp_priv, NULL);
+  if (ctx == NULL)
+    goto error;
+
+  if (EVP_PKEY_derive_init(ctx) <= 0)
+    goto error;
+
+  if (EVP_PKEY_derive_set_peer(ctx, evp_public) <= 0)
+    goto error;
+
+  if (EVP_PKEY_derive(ctx, NULL, &length) <= 0)
+    goto error;
+  dummy = coap_new_binary(length);
+  if (dummy == NULL)
+    goto error;
+  if (EVP_PKEY_derive(ctx, dummy->s, &length) <= 0)
+    goto error;
+  *shared_secret = (coap_bin_const_t*)dummy;
+
+  EVP_PKEY_free(evp_priv);
+  EVP_PKEY_free(evp_public);
+  EVP_PKEY_CTX_free(ctx);
+  return 1;
+
+error:
+  coap_crypto_output_errors("coap_crypto_derive_shared_secret");
+  if (evp_priv)
+    EVP_PKEY_free(evp_priv);
+  if (evp_public)
+    EVP_PKEY_free(evp_public);
+  if (ctx)
+    EVP_PKEY_CTX_free(ctx);
+  return 0;
+}
+
+int
+coap_crypto_hash(cose_alg_t alg, const coap_bin_const_t *data,
+                 coap_bin_const_t **hash)
+{
+  unsigned int length;
+  const EVP_MD *evp_md;
+  EVP_MD_CTX *evp_ctx = NULL;
+  coap_binary_t *dummy = NULL;
+
+  if ((evp_md = get_hash_alg(alg)) == NULL) {
+    coap_log(LOG_DEBUG,
+             "coap_crypto_hash: algorithm %d not supported\n", alg);
+    return 0;
+  }
+  evp_ctx = EVP_MD_CTX_new();
+  if (evp_ctx == NULL)
+    goto error;
+  if (EVP_DigestInit_ex(evp_ctx, evp_md, NULL) == 0)
+    goto error;;
+  if (EVP_DigestUpdate(evp_ctx, data->s, data->length) == 0)
+    goto error;;
+  dummy = coap_new_binary(EVP_MAX_MD_SIZE);
+  if (dummy == NULL)
+    goto error;
+  if (EVP_DigestFinal_ex(evp_ctx, dummy->s, &length) == 0)
+    goto error;
+  dummy->length = length;
+  *hash = (coap_bin_const_t*)(dummy);
+  EVP_MD_CTX_free(evp_ctx);
+  return 1;
+
+error:
+  coap_crypto_output_errors("coap_crypto_hash");
+  coap_delete_binary(dummy);
+  if (evp_ctx)
+    EVP_MD_CTX_free(evp_ctx);
+  return 0;
+}
+
+#else /* OPENSSL_VERSION_NUMBER < 0x10101000L */
+
+int
+coap_crypto_check_curve_alg(cose_curve_t alg) {
+  (void)alg;
+  return 0;
+}
+
+int
+coap_crypto_read_pem_private_key(const char *filename, uint8_t *priv,
+                                 size_t *len)
+{
+  (void)filename;
+  (void)priv;
+  (void)len;
+  return 0;
+}
+
+int
+coap_crypto_read_pem_public_key(const char *filename, uint8_t *pub,
+                                size_t *len)
+{
+  (void)filename;
+  (void)pub;
+  (void)len;
+  return 0;
+}
+
+int
+coap_crypto_sign(cose_curve_t curve,
+                 coap_binary_t *signature,
+                 coap_bin_const_t *ciphertext,
+                 coap_bin_const_t *private_key,
+                 coap_bin_const_t *public_key)
+{
+  (void)curve;
+  (void)signature;
+  (void)ciphertext;
+  (void)private_key;
+  (void)public_key;
+  return 0;
+}
+
+int
+coap_crypto_verify(cose_curve_t curve,
+                   coap_binary_t *signature,
+                   coap_bin_const_t *plaintext,
+                   coap_bin_const_t *public_key)
+{
+  (void)curve;
+  (void)signature;
+  (void)plaintext;
+  (void)public_key;
+  return 0;
+}
+
+int
+coap_crypto_gen_pkey(cose_curve_t curve, coap_bin_const_t **private,
+                     coap_bin_const_t **public)
+{
+  (void)curve;
+  (void)private;
+  (void)public;
+  return 0;
+}
+
+int
+coap_crypto_derive_shared_secret(cose_curve_t curve,
+                                 coap_bin_const_t *local_private,
+                                 coap_bin_const_t *peer_public,
+                                 coap_bin_const_t **shared_secret)
+{
+  (void)curve;
+  (void)local_private;
+  (void)peer_public;
+  (void)shared_secret;
+  return 0;
+}
+
+#endif /* OPENSSL_VERSION_NUMBER < 0x10101000L */
+
+#endif /* HAVE_OSCORE_GROUP */
+#endif /* HAVE_OSCORE */
 
 #else /* !HAVE_OPENSSL */
 
