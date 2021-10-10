@@ -427,6 +427,54 @@ coap_cancel_observe(coap_session_t *session, coap_binary_t *token,
   }
   return 0;
 }
+
+coap_mid_t
+coap_retransmit_oscore_pdu(coap_session_t *session,
+                           coap_pdu_t *pdu,
+                           coap_opt_t* echo)
+{
+  coap_lg_crcv_t *lg_crcv;
+  uint64_t token_match = STATE_TOKEN_BASE(coap_decode_var_bytes8(pdu->token,
+                                                       pdu->token_length));
+  uint8_t ltoken[8];
+  size_t ltoken_len;
+  uint64_t token;
+  const uint8_t *data;
+  size_t data_len;
+  coap_pdu_t *resend_pdu;
+
+  LL_FOREACH(session->lg_crcv, lg_crcv) {
+    if (token_match != STATE_TOKEN_BASE(lg_crcv->state_token) &&
+      !full_match(pdu->token, pdu->token_length,
+                  lg_crcv->app_token->s, lg_crcv->app_token->length)) {
+      /* try out the next one */
+      continue;
+    }
+
+    /* lg_crcv found */
+
+    /* Re-send request with new token */
+    token = STATE_TOKEN_FULL(lg_crcv->state_token,
+                             ++lg_crcv->retry_counter);
+    ltoken_len = coap_encode_var_safe8(ltoken, sizeof(token), token);
+    /* There could be a Block option in pdu */
+    resend_pdu = coap_pdu_duplicate(pdu, session, ltoken_len,
+                                    ltoken, NULL);
+    if (!resend_pdu)
+      goto error;
+    if (echo) {
+      coap_insert_option(resend_pdu, COAP_OPTION_ECHO, coap_opt_length(echo),
+                         coap_opt_value(echo));
+    }
+    if (coap_get_data(&lg_crcv->pdu, &data_len, &data)) {
+      coap_add_data(resend_pdu, data_len, data);
+    }
+
+    return coap_send_internal(session, resend_pdu);
+  }
+error:
+  return COAP_INVALID_MID;
+}
 #endif /* COAP_CLIENT_SUPPORT */
 
 static int
@@ -478,7 +526,7 @@ coap_add_data_large_internal(coap_session_t *session,
              "Size of large buffer restricted to 0x%x bytes\n", MAX_BLK_LEN);
     length = MAX_BLK_LEN;
   }
-  /* Determine the block size to use, adding in sensible options if needed */
+
   if (COAP_PDU_IS_REQUEST(pdu)) {
     coap_lg_xmit_t *q;
 
@@ -518,10 +566,21 @@ coap_add_data_large_internal(coap_session_t *session,
       }
     }
   }
+#ifdef HAVE_OSCORE
+  if (session->oscore_encryption) {
+    /* Need to convert Proxy-Uri to Proxy-Scheme option if needed */
+    if (COAP_PDU_IS_REQUEST(pdu) && !coap_rebuild_pdu_for_proxy(pdu))
+      goto fail;
+  }
+#endif /* HAVE_OSCORE */
 
+  /* Determine the block size to use, adding in sensible options if needed */
   avail = pdu->max_size - pdu->used_size - pdu->hdr_size;
   /* There may be a response with Echo option */
   avail -= coap_opt_encode_size(COAP_OPTION_ECHO, 40);
+#ifdef HAVE_OSCORE
+  avail -= coap_oscore_overhead(session, pdu);
+#endif /* HAVE_OSCORE */
   /* May need token of length 8, so account for this */
   avail -= (pdu->token_length < 8) ? 8 - pdu->token_length : 0;
   blk_size = coap_flsll((long long)avail) - 4 - 1;
@@ -684,6 +743,9 @@ coap_add_data_large_internal(coap_session_t *session,
     avail -= coap_opt_encode_size(COAP_OPTION_ECHO, 40);
     /* May need token of length 8, so account for this */
     avail -= (pdu->token_length < 8) ? 8 - pdu->token_length : 0;
+#ifdef HAVE_OSCORE
+    avail -= coap_oscore_overhead(session, pdu);
+#endif /* HAVE_OSCORE */
     if (avail < (ssize_t)chunk) {
       /* chunk size change down */
       if (avail < 16) {
@@ -1586,7 +1648,7 @@ coap_handle_request_put_block(coap_context_t *context,
         pdu->body_total = p->total_len;
         coap_log(LOG_DEBUG, "Server app version of updated PDU\n");
         coap_show_pdu(LOG_DEBUG, pdu);
-        coap_log(LOG_DEBUG, "call custom handler for resource '%*.*s'\n",
+        coap_log(LOG_DEBUG, "call custom handler for resource '%*.*s' (1)\n",
                  (int)resource->uri_path->length,
                  (int)resource->uri_path->length, resource->uri_path->s);
         /* Need to do this here as we need to free off p */
@@ -1621,7 +1683,7 @@ coap_handle_request_put_block(coap_context_t *context,
                              (block.m << 3) |
                              block.aszx),
                            buf);
-          coap_log(LOG_DEBUG, "call custom handler for resource '%*.*s'\n",
+          coap_log(LOG_DEBUG, "call custom handler for resource '%*.*s' (2)\n",
                    (int)resource->uri_path->length,
                    (int)resource->uri_path->length, resource->uri_path->s);
           h(resource, session, pdu, query, response);
@@ -1716,7 +1778,18 @@ check_freshness(coap_session_t *session, coap_pdu_t *rcvd, coap_pdu_t *sent,
       if (have_data) {
         coap_add_data(echo_pdu, data_len, data);
       }
-
+#ifdef HAVE_OSCORE
+      if (session->oscore_encryption &&
+          (opt = coap_check_option(echo_pdu, COAP_OPTION_OBSERVE, &opt_iter)) &&
+          coap_decode_var_bytes(coap_opt_value(opt), coap_opt_length(opt) == 0)) {
+        /* Need to update the base PDU's Token for closing down Observe */
+        if (lg_xmit) {
+          lg_xmit->b.b1.state_token = token;
+        } else {
+          lg_crcv->state_token = token;
+        }
+      }
+#endif /* HAVE_OSCORE */
       mid = coap_send_internal(session, echo_pdu);
       if (mid == COAP_INVALID_MID)
         goto not_sent;
@@ -2203,7 +2276,7 @@ coap_handle_response_get_block(coap_context_t *context,
             rcvd->body_total = size2;
           }
           if (context->response_handler) {
-            coap_log(LOG_DEBUG, "Client app version of updated PDU\n");
+            coap_log(LOG_DEBUG, "Client app version of updated PDU (1)\n");
             coap_show_pdu(LOG_DEBUG, rcvd);
             context->response_handler(session, sent, rcvd, rcvd->mid);
           }
@@ -2236,7 +2309,7 @@ block_mode:
             p->initial = 1;
           }
           if (context->response_handler) {
-            coap_log(LOG_DEBUG, "Client app version of updated PDU\n");
+            coap_log(LOG_DEBUG, "Client app version of updated PDU (2)\n");
             coap_show_pdu(LOG_DEBUG, rcvd);
             context->response_handler(session, sent, rcvd, rcvd->mid);
           }
@@ -2263,7 +2336,13 @@ block_mode:
         }
       }
     } else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
+#ifdef HAVE_OSCORE
+      if (check_freshness(session, rcvd,
+                          (session->oscore_encryption == 0) ? sent : NULL,
+                          NULL, p))
+#else /* !HAVE_OSCORE */
       if (check_freshness(session, rcvd, sent, NULL, p))
+#endif /* !HAVE_OSCORE */
         goto skip_app_handler;
       goto fail_resp;
     }
@@ -2274,6 +2353,8 @@ fail_resp:
     }
     /* need to put back original token into rcvd */
     coap_update_token(rcvd, p->app_token->length, p->app_token->s);
+    coap_log(LOG_DEBUG, "Client app version of updated PDU (3)\n");
+    coap_show_pdu(LOG_DEBUG, rcvd);
     break;
   } /* LL_FOREACH() */
 
@@ -2285,8 +2366,7 @@ fail_resp:
                  coap_session_str(session));
         goto skip_app_handler;
       }
-    }
-    else if (COAP_RESPONSE_CLASS(rcvd->code) == 2) {
+    } else if (COAP_RESPONSE_CLASS(rcvd->code) == 2) {
       if (coap_get_block_b(session, rcvd, COAP_OPTION_BLOCK2, &block)) {
         have_block = 1;
         block_opt = COAP_OPTION_BLOCK2;

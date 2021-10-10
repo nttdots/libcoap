@@ -157,17 +157,23 @@ coap_delete_pdu(coap_pdu_t *pdu) {
   }
 }
 
+/*
+ * Note: This does not include any data, just the token and options
+ */
 coap_pdu_t *
 coap_pdu_duplicate(const coap_pdu_t *old_pdu,
                    coap_session_t *session,
                    size_t token_length,
                    const uint8_t *token,
                    coap_opt_filter_t *drop_options) {
-  coap_pdu_t *pdu = coap_pdu_init(old_pdu->type,
-                                  old_pdu->code,
-                                  coap_new_message_id(session),
-                                  coap_session_max_pdu_size(session));
+  uint8_t doing_first = session->doing_first;
+  coap_pdu_t *pdu;
 
+  session->doing_first = 0;
+  pdu = coap_pdu_init(old_pdu->type, old_pdu->code,
+                      coap_new_message_id(session),
+                      coap_session_max_pdu_size(session));
+  session->doing_first = doing_first;
   if (pdu == NULL)
     return NULL;
 

@@ -209,6 +209,7 @@ coap_make_session(coap_proto_t proto, coap_session_type_t type,
   session->probing_rate = COAP_DEFAULT_PROBING_RATE;
   session->dtls_event = -1;
   session->last_ping_mid = COAP_INVALID_MID;
+  session->last_con_mid = COAP_INVALID_MID;
 
   /* Randomly initialize */
   coap_prng((unsigned char *)&session->tx_mid, sizeof(session->tx_mid));
@@ -289,6 +290,9 @@ void coap_session_mfree(coap_session_t *session) {
     coap_block_delete_lg_srcv(session, sq);
   }
 #endif /* COAP_SERVER_SUPPORT */
+#ifdef HAVE_OSCORE
+  coap_delete_oscore_associations(session);
+#endif /* HAVE_OSCORE */
 }
 
 void coap_session_free(coap_session_t *session) {

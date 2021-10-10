@@ -141,6 +141,12 @@ typedef void (*coap_method_handler_t)
    COAP_RESOURCE_FLAGS_LIB_DIS_MCAST_SUPPRESS_4_XX | \
    COAP_RESOURCE_FLAGS_LIB_DIS_MCAST_SUPPRESS_5_XX)
 
+/*
+ * Force all large traffic to this resource to be presented as a single body
+ * to the request handler.
+ */
+#define COAP_RESOURCE_FLAGS_FORCE_SINGLE_BODY 0x200
+
 /**
  * Creates a new resource object and initializes the link field to the string
  * @p uri_path. This function returns the new coap_resource_t object.
@@ -157,6 +163,15 @@ typedef void (*coap_method_handler_t)
  *                 ored together.
  *                 If flags is set to 0 then the
  *                 COAP_RESOURCE_FLAGS_NOTIFY_NON is assumed.
+ *
+ *                 COAP_RESOURCE_FLAGS_NOTIFY_NON_ALWAYS
+ *                  If this flag is set, coap-observe notifications
+ *                  will always be sent non-confirmable.@n
+ *
+ *                 COAP_RESOURCE_FLAGS_FORCE_SINGLE_BODY
+ *                  If this flag is set, large bodies of data presented to
+ *                  the request handler will always be as a single body
+ *                  providing COAP_BLOCK_USE_LIBCOAP block mode is set.@n
  *
  * @return         A pointer to the new object or @c NULL on error.
  */

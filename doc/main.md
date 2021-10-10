@@ -36,6 +36,8 @@ The following RFCs are supported
 * RFC8323: CoAP (Constrained Application Protocol) over TCP, TLS, and WebSockets
   [No WebSockets support]
 
+* RFC8613: Object Security for Constrained RESTful Environments (OSCORE)
+
 * RFC8768: Constrained Application Protocol (CoAP) Hop-Limit Option
 
 * RFC9175: CoAP: Echo, Request-Tag, and Token Processing

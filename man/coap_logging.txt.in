@@ -99,6 +99,11 @@ Information level (6).
 *LOG_DEBUG*::
 Debug level (7).
 
+With additional levels:
+
+*COAP_LOG_OSCORE*::
+Debug OSCORE information (8).
+
 The *coap_set_log_level*() function is used to set the current logging _level_
 for output by any subsequent *coap_log*() calls.  Output is only logged if the
 *coap_log*() _level_ definition is smaller than or equal to the current logging

@@ -79,7 +79,7 @@ In _handler_, data from _incoming_pdu_ can be abstracted as described in
 appropriate as described in *coap_pdu_setup*(3).  _response_pdu_ is already
 pre-populated with the _incoming_pdu_'s token and the PDU type.  If this
 handler is called as a result of an unsolicited Observe trigger, then the
-option OBSERVE (and potentially option BLOCK2) are also added in.  The
+option Observe (and potentially option Block2) are also added in.  The
  _response_pdu_'s response code should always be updated.
 
 *NOTE:* Any data associated with _incoming_pdu_ is no longer be available after
@@ -216,6 +216,15 @@ COAP_EVENT_PARTIAL_BLOCK      0x3001
  */
 COAP_EVENT_SERVER_SESSION_NEW 0x4001
 COAP_EVENT_SERVER_SESSION_DEL 0x4002
+/**
+ * OSCORE errors
+ */
+COAP_EVENT_OSCORE_DECRYPTION_FAILURE   0x5001
+COAP_EVENT_OSCORE_NOT_ENABLED          0x5002
+COAP_EVENT_OSCORE_NO_PROTECTED_PAYLOAD 0x5003
+COAP_EVENT_OSCORE_NO_SECURITY          0x5004
+COAP_EVENT_OSCORE_INTERNAL_ERROR       0x5005
+COAP_EVENT_OSCORE_DECODE_ERROR         0x5006
 ----
 
 EXAMPLES
@@ -264,9 +273,9 @@ coap_pdu_t *request, coap_string_t *query, coap_pdu_t *response) {
    * Define the format - COAP_MEDIATYPE_TEXT_PLAIN - to add in
    * Define how long this response is valid for (secs) - 1 - to add in.
    *
-   * OBSERVE Option added internally if needed within the function
-   * BLOCK2 Option added internally if output too large
-   * ETAG Option added internally
+   * Observe Option added internally if needed within the function
+   * Block2 Option added internally if output too large
+   * ETag Option added internally
    */
   coap_add_data_large_response(resource, session, request, response,
                                query, COAP_MEDIATYPE_TEXT_PLAIN, 1, 0,

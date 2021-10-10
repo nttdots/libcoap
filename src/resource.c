@@ -434,7 +434,6 @@ coap_add_attr(coap_resource_t *resource,
 
   if (!resource || !name)
     return NULL;
-
   attr = (coap_attr_t *)coap_malloc_type(COAP_RESOURCEATTR, sizeof(coap_attr_t));
 
   if (attr) {
@@ -684,6 +683,12 @@ coap_print_link(const coap_resource_t *resource,
     COPY_COND_WITH_OFFSET(p, bufend, *offset, ";obs", 4, *len);
   }
 
+#ifdef HAVE_OSCORE
+  /* If oscore is enabled */
+  if (resource->context && resource->context->p_osc_ctx)
+    COPY_COND_WITH_OFFSET(p, bufend, *offset, ";osc", 4, *len);
+#endif /* HAVE_OSCORE */
+
   output_length = p - buf;
 
   if (output_length > COAP_PRINT_STATUS_MAX) {
@@ -761,7 +766,8 @@ coap_add_observer(coap_resource_t *resource,
   size_t len;
   const uint8_t *data;
 /* https://tools.ietf.org/html/rfc7641#section-3.6 */
-static const uint16_t cache_ignore_options[] = { COAP_OPTION_ETAG };
+static const uint16_t cache_ignore_options[] = { COAP_OPTION_ETAG,
+                                                 COAP_OPTION_OSCORE };
 
   assert( session );
 
@@ -999,7 +1005,7 @@ coap_notify_observers(coap_context_t *context, coap_resource_t *r,
         query = coap_get_query(obs->pdu);
         coap_log(LOG_DEBUG, "Observe PDU presented to app.\n");
         coap_show_pdu(LOG_DEBUG, obs->pdu);
-        coap_log(LOG_DEBUG, "call custom handler for resource '%*.*s'\n",
+        coap_log(LOG_DEBUG, "call custom handler for resource '%*.*s' (4)\n",
                  (int)r->uri_path->length, (int)r->uri_path->length,
                  r->uri_path->s);
         h(r, obs->session, obs->pdu, query, response);

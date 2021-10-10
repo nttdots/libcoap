@@ -80,9 +80,23 @@ typedef enum coap_event_t {
  * The session will still contain valid data when the event handler is
  * called.
  */
-  COAP_EVENT_SERVER_SESSION_DEL = 0x4002
+  COAP_EVENT_SERVER_SESSION_DEL = 0x4002,
 
 /** @} */
+
+/**
+ * @defgroup oscore_events OSCORE events
+ * @{
+ */
+  COAP_EVENT_OSCORE_DECRYPTION_FAILURE = 0x5001,
+  COAP_EVENT_OSCORE_NOT_ENABLED,
+  COAP_EVENT_OSCORE_NO_PROTECTED_PAYLOAD,
+  COAP_EVENT_OSCORE_NO_SECURITY,
+  COAP_EVENT_OSCORE_INTERNAL_ERROR,
+  COAP_EVENT_OSCORE_DECODE_ERROR
+
+/** @} */
+
 } coap_event_t;
 
 /**

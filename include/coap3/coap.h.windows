@@ -47,6 +47,7 @@ extern "C" {
 #include "coap3/coap_event.h"
 #include "coap3/coap_io.h"
 #include "coap3/coap_option.h"
+#include "coap3/coap_oscore.h"
 #include "coap3/coap_prng.h"
 #include "coap3/coap_subscribe.h"
 #include "coap3/coap_time.h"
