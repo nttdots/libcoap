@@ -670,7 +670,7 @@ coap_print_link(const coap_resource_t *resource,
 
 #ifdef HAVE_OSCORE
   /* If oscore is enabled */
-  if (resource->context && resource->context->osc_ctx)
+  if (resource->context && resource->context->p_osc_ctx)
     COPY_COND_WITH_OFFSET(p, bufend, *offset, ";osc", 4, *len);
 #endif /* HAVE_OSCORE */
 

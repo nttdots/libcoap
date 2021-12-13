@@ -2494,9 +2494,18 @@ int
 coap_oscore_group_is_supported(void) {
 #if defined(HAVE_OSCORE_GROUP)
   return 1;
-#else /* !HAVE_OSCORE_GROUP */
+#else  /* !HAVE_OSCORE_GROUP */
   return 0;
 #endif /* !HAVE_OSCORE_GROUP */
+}
+
+int
+coap_oscore_edhoc_is_supported(void) {
+#if defined(HAVE_OSCORE_EDHOC)
+  return 0;
+#else  /* !HAVE_OSCORE_EDHOC */
+  return 0;
+#endif /* !HAVE_OSCORE_EDHOC */
 }
 
 #include <mbedtls/cipher.h>
@@ -2518,16 +2527,14 @@ coap_oscore_group_is_supported(void) {
 static struct cipher_algs {
   cose_alg_t alg;
   mbedtls_cipher_type_t cipher_type;
-} ciphers[] = {
-  { COSE_Algorithm_AES_CCM_16_64_128, MBEDTLS_CIPHER_AES_128_CCM },
-  { COSE_Algorithm_AES_CCM_16_64_256, MBEDTLS_CIPHER_AES_256_CCM }
-};
+} ciphers[] = {{COSE_Algorithm_AES_CCM_16_64_128, MBEDTLS_CIPHER_AES_128_CCM},
+               {COSE_Algorithm_AES_CCM_16_64_256, MBEDTLS_CIPHER_AES_256_CCM}};
 
 static mbedtls_cipher_type_t
 get_cipher_alg(cose_alg_t alg) {
   size_t idx;
 
-  for (idx = 0; idx < sizeof(ciphers)/sizeof(struct cipher_algs); idx++) {
+  for (idx = 0; idx < sizeof(ciphers) / sizeof(struct cipher_algs); idx++) {
     if (ciphers[idx].alg == alg)
       return ciphers[idx].cipher_type;
   }
@@ -2544,49 +2551,115 @@ static struct hmac_algs {
   cose_alg_t alg;
   mbedtls_md_type_t hmac_type;
 } hmacs[] = {
-  { COSE_Algorithm_HMAC256_256, MBEDTLS_MD_SHA256 },
+    {COSE_Algorithm_HMAC256_256, MBEDTLS_MD_SHA256},
+    {COSE_Algorithm_HMAC384_384, MBEDTLS_MD_SHA384},
+    {COSE_Algorithm_HMAC512_512, MBEDTLS_MD_SHA512},
 };
 
 static mbedtls_md_type_t
 get_hmac_alg(cose_alg_t alg) {
   size_t idx;
 
-  for (idx = 0; idx < sizeof(hmacs)/sizeof(struct hmac_algs); idx++) {
+  for (idx = 0; idx < sizeof(hmacs) / sizeof(struct hmac_algs); idx++) {
     if (hmacs[idx].alg == alg)
       return hmacs[idx].hmac_type;
   }
-  coap_log(LOG_DEBUG, "get_hmac_alg: COSE hkdf %d not supported\n", alg);
+  coap_log(LOG_DEBUG, "get_hmac_alg: COSE hmac %d not supported\n", alg);
+  return 0;
+}
+
+#if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
+
+/*
+ * The struct curve_algs and the function get_curve_alg() are used to
+ * determine which curve type to use for creating the required curve
+ * output object.
+ */
+static struct curve_algs {
+  cose_curve_t alg;
+  int get_curve;
+} curves[] = {
+    {COSE_curve_P_256, MBEDTLS_ECP_DP_SECP256R1},
+    {COSE_curve_X25519, MBEDTLS_ECP_DP_CURVE25519},
+};
+
+static int
+get_curve_alg(cose_curve_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(curves) / sizeof(struct curve_algs); idx++) {
+    if (curves[idx].alg == alg)
+      return curves[idx].get_curve;
+  }
+  coap_log(LOG_DEBUG, "get_curve_alg: COSE curve %d not supported\n", alg);
+  return 0;
+}
+
+/*
+ * The struct hash_algs and the function get_hash_alg() are used to
+ * determine which hash type to use for creating the required hash object.
+ */
+static struct hash_algs {
+  cose_alg_t alg;
+  mbedtls_md_type_t hash_type;
+} hashs[] = {
+    {COSE_Algorithm_SHA_256_256, MBEDTLS_MD_SHA256},
+    {COSE_Algorithm_SHA_512, MBEDTLS_MD_SHA512},
+};
+
+static mbedtls_md_type_t
+get_hash_alg(cose_alg_t alg) {
+  size_t idx;
+
+  for (idx = 0; idx < sizeof(hashs) / sizeof(struct hash_algs); idx++) {
+    if (hashs[idx].alg == alg)
+      return hashs[idx].hash_type;
+  }
+  coap_log(LOG_DEBUG, "get_hash_alg: COSE hash %d not supported\n", alg);
   return 0;
 }
 
 int
+coap_crypto_check_curve_alg(cose_curve_t alg) {
+  return get_curve_alg(alg) != 0;
+}
+
+int
+coap_crypto_check_hash_alg(cose_alg_t alg) {
+  return get_hash_alg(alg) != 0;
+}
+#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
+
+int
 coap_crypto_check_cipher_alg(cose_alg_t alg) {
-  return get_cipher_alg(alg);
+  return get_cipher_alg(alg) != 0;
 }
 
 int
 coap_crypto_check_hkdf_alg(cose_alg_t alg) {
-  return get_hmac_alg(alg);
+  return get_hmac_alg(alg) != 0;
 }
 
 #ifdef MBEDTLS_ERROR_C
-#define C(Func) do {                                            \
-  int c_tmp = (int)(Func);                                      \
-  if (c_tmp != 0) {                                             \
-    char error_buf[32];                                         \
-    mbedtls_strerror(c_tmp, error_buf, sizeof(error_buf));      \
-    coap_log(LOG_ERR, "mbedtls: %s\n", error_buf);              \
-    goto error;                                                 \
-  }                                                             \
-} while(0);
+#define C(Func)                                                                \
+  do {                                                                         \
+    int c_tmp = (int)(Func);                                                   \
+    if (c_tmp != 0) {                                                          \
+      char error_buf[64];                                                      \
+      mbedtls_strerror(c_tmp, error_buf, sizeof(error_buf));                   \
+      coap_log(LOG_ERR, "mbedtls: -0x%04x: %s\n", -c_tmp, error_buf);          \
+      goto error;                                                              \
+    }                                                                          \
+  } while (0);
 #else /* !MBEDTLS_ERROR_C */
-#define C(Func) do {                                             \
-  int c_tmp = (int)(Func);                                       \
-  if (c_tmp != 0) {                                              \
-    coap_log(LOG_ERR, "mbedtls: %d\n", tmp);                     \
-    goto error;                                                  \
-  }                                                              \
-} while(0);
+#define C(Func)                                                                \
+  do {                                                                         \
+    int c_tmp = (int)(Func);                                                   \
+    if (c_tmp != 0) {                                                          \
+      coap_log(LOG_ERR, "mbedtls: %d\n", tmp);                                 \
+      goto error;                                                              \
+    }                                                                          \
+  } while (0);
 #endif /* !MBEDTLS_ERROR_C */
 
 /**
@@ -2596,11 +2669,13 @@ coap_crypto_check_hkdf_alg(cose_alg_t alg) {
 static int
 setup_cipher_context(mbedtls_cipher_context_t *ctx,
                      cose_alg_t coap_alg,
-                     const uint8_t *key_data, size_t key_length,
+                     const uint8_t *key_data,
+                     size_t key_length,
                      mbedtls_operation_t mode) {
   const mbedtls_cipher_info_t *cipher_info;
   mbedtls_cipher_type_t cipher_type;
-  uint8_t key[COAP_CRYPTO_MAX_KEY_SIZE]; /* buffer for normalizing the key according to its key length */
+  uint8_t key[COAP_CRYPTO_MAX_KEY_SIZE]; /* buffer for normalizing the key
+                                            according to its key length */
   int klen;
   memset(key, 0, sizeof(key));
 
@@ -2638,7 +2713,8 @@ int
 coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
                          coap_bin_const_t *data,
                          coap_bin_const_t *aad,
-                         uint8_t *result, size_t *max_result_len) {
+                         uint8_t *result,
+                         size_t *max_result_len) {
   mbedtls_cipher_context_t ctx;
   const coap_crypto_aes_ccm_t *ccm;
   unsigned char tag[16];
@@ -2656,25 +2732,32 @@ coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
   }
   ccm = &params->params.aes;
 
-  if (!setup_cipher_context(&ctx, params->alg, ccm->key.s, ccm->key.length,
+  if (!setup_cipher_context(&ctx,
+                            params->alg,
+                            ccm->key.s,
+                            ccm->key.length,
                             MBEDTLS_ENCRYPT)) {
     return 0;
   }
 
   if (aad) {
     laad = *aad;
-  }
-  else {
+  } else {
     laad.s = NULL;
     laad.length = 0;
   }
 
   C(mbedtls_cipher_auth_encrypt(&ctx,
-                                ccm->nonce, 15 - ccm->l,  /* iv */
-                                laad.s, laad.length,      /* ad */
-                                data->s, data->length,    /* input */
-                                result, &result_len,      /* output */
-                                tag, ccm->tag_len         /* tag */
+                                ccm->nonce,
+                                15 - ccm->l, /* iv */
+                                laad.s,
+                                laad.length, /* ad */
+                                data->s,
+                                data->length, /* input */
+                                result,
+                                &result_len, /* output */
+                                tag,
+                                ccm->tag_len /* tag */
                                 ));
 
   /* check if buffer is sufficient to hold tag */
@@ -2686,7 +2769,7 @@ coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
   memcpy(result + result_len, tag, ccm->tag_len);
   *max_result_len = result_len + ccm->tag_len;
   ret = 1;
- error:
+error:
   mbedtls_cipher_free(&ctx);
   return ret;
 }
@@ -2695,7 +2778,8 @@ int
 coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
                          coap_bin_const_t *data,
                          coap_bin_const_t *aad,
-                         uint8_t *result, size_t *max_result_len) {
+                         uint8_t *result,
+                         size_t *max_result_len) {
   mbedtls_cipher_context_t ctx;
   const coap_crypto_aes_ccm_t *ccm;
   const unsigned char *tag;
@@ -2714,7 +2798,10 @@ coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
 
   ccm = &params->params.aes;
 
-  if (!setup_cipher_context(&ctx, params->alg, ccm->key.s, ccm->key.length,
+  if (!setup_cipher_context(&ctx,
+                            params->alg,
+                            ccm->key.s,
+                            ccm->key.length,
                             MBEDTLS_DECRYPT)) {
     return 0;
   }
@@ -2726,32 +2813,37 @@ coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
 
   if (aad) {
     laad = *aad;
-  }
-  else {
+  } else {
     laad.s = NULL;
     laad.length = 0;
   }
 
   tag = data->s + data->length - ccm->tag_len;
   C(mbedtls_cipher_auth_decrypt(&ctx,
-                                ccm->nonce, 15 - ccm->l,  /* iv */
-                                laad.s, laad.length,      /* ad */
-                                data->s, data->length - ccm->tag_len, /* input */
-                                result, &result_len,      /* output */
-                                tag, ccm->tag_len         /* tag */
+                                ccm->nonce,
+                                15 - ccm->l, /* iv */
+                                laad.s,
+                                laad.length, /* ad */
+                                data->s,
+                                data->length - ccm->tag_len, /* input */
+                                result,
+                                &result_len, /* output */
+                                tag,
+                                ccm->tag_len /* tag */
                                 ));
 
   *max_result_len = result_len;
   ret = 1;
- error:
+error:
   mbedtls_cipher_free(&ctx);
   return ret;
 }
 
 int
-coap_crypto_hmac(cose_alg_t alg, coap_bin_const_t *key,
-                 coap_bin_const_t *data, coap_bin_const_t **hmac)
-{
+coap_crypto_hmac(cose_alg_t alg,
+                 coap_bin_const_t *key,
+                 coap_bin_const_t *data,
+                 coap_bin_const_t **hmac) {
   mbedtls_md_context_t ctx;
   int ret = 0;
   const int use_hmac = 1;
@@ -2763,10 +2855,9 @@ coap_crypto_hmac(cose_alg_t alg, coap_bin_const_t *key,
   assert(key);
   assert(data);
   assert(hmac);
-  
+
   if ((mac_algo = get_hmac_alg(alg)) == 0) {
-    coap_log(LOG_DEBUG,
-             "coap_crypto_hmac: algorithm %d not supported\n", alg);
+    coap_log(LOG_DEBUG, "coap_crypto_hmac: algorithm %d not supported\n", alg);
     return 0;
   }
   md_info = mbedtls_md_info_from_type(mac_algo);
@@ -2793,39 +2884,273 @@ error:
   return ret;
 }
 
-#if defined(HAVE_OSCORE_GROUP)
+#if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
+
 int
-coap_crypto_read_pem_private_key(const char *filename, uint8_t *priv,
-                                 size_t *len)
-{
-  (void)filename;
-  (void)priv;
-  (void)len;
+coap_crypto_read_pem_private_key(const char *filename,
+                                 coap_crypto_pri_key_t **private) {
+  int ret = 0;
+  mbedtls_pk_context *pk_ctx = mbedtls_malloc(sizeof(mbedtls_pk_context));
+  coap_crypto_pri_key_t *local = mbedtls_malloc(sizeof(coap_crypto_pri_key_t));
+  int pk_ctx_init = 0;
+  uint8_t buf[200];
+
+  if (pk_ctx == NULL || local == NULL)
+    goto error;
+
+  mbedtls_pk_init(pk_ctx);
+  pk_ctx_init = 1;
+  C(mbedtls_pk_parse_keyfile(pk_ctx, filename, NULL));
+  local->key_tls = pk_ctx;
+
+  ret = mbedtls_pk_write_key_der(pk_ctx, buf, sizeof(buf));
+  if (ret <= 0)
+    goto error;
+  local->key_value = coap_new_bin_const(&buf[sizeof(buf) - ret], ret);
+  if (local->key_value == NULL)
+    goto error;
+
+  *private = local;
+  return 1;
+
+error:
+  mbedtls_free(local);
+  if (pk_ctx_init)
+    mbedtls_pk_free(pk_ctx);
+  mbedtls_free(pk_ctx);
   return 0;
 }
 
 int
-coap_crypto_read_pem_public_key(const char *filename, uint8_t *pub,
-                                size_t *len)
-{
-  (void)filename;
-  (void)pub;
-  (void)len;
+coap_crypto_read_asn1_private_key(coap_bin_const_t *binary,
+                                  coap_crypto_pri_key_t **private) {
+  int ret = 0;
+  mbedtls_pk_context *pk_ctx = mbedtls_malloc(sizeof(mbedtls_pk_context));
+  coap_crypto_pri_key_t *local = mbedtls_malloc(sizeof(coap_crypto_pri_key_t));
+  int pk_ctx_init = 0;
+  uint8_t buf[200];
+
+  if (pk_ctx == NULL || local == NULL)
+    goto error;
+
+  mbedtls_pk_init(pk_ctx);
+  pk_ctx_init = 1;
+  C(mbedtls_pk_parse_key(pk_ctx, binary->s, binary->length, NULL, 0));
+  local->key_tls = pk_ctx;
+
+  ret = mbedtls_pk_write_key_der(pk_ctx, buf, sizeof(buf));
+  if (ret <= 0)
+    goto error;
+  local->key_value = coap_new_bin_const(&buf[sizeof(buf) - ret], ret);
+  if (local->key_value == NULL)
+    goto error;
+
+  *private = local;
+  coap_delete_bin_const(binary);
+  return 1;
+
+error:
+  mbedtls_free(local);
+  if (pk_ctx_init)
+    mbedtls_pk_free(pk_ctx);
+  mbedtls_free(pk_ctx);
+  coap_delete_bin_const(binary);
   return 0;
+}
+
+int
+coap_crypto_read_raw_private_key(cose_curve_t curve,
+                                 coap_bin_const_t *binary,
+                                 coap_crypto_pri_key_t **private) {
+  (void)curve;
+  (void)binary;
+  (void)private;
+  return 0;
+}
+
+coap_crypto_pri_key_t *
+coap_crypto_duplicate_private_key(coap_crypto_pri_key_t *key) {
+  (void)key;
+  return NULL;
+}
+
+void
+coap_crypto_delete_private_key(coap_crypto_pri_key_t *private) {
+  if (private) {
+    mbedtls_pk_context *pk_ctx = (mbedtls_pk_context *)private->key_tls;
+
+    mbedtls_pk_free(pk_ctx);
+    mbedtls_free(pk_ctx);
+    coap_delete_bin_const(private->key_value);
+    mbedtls_free(private);
+  }
+}
+
+int
+coap_crypto_read_pem_public_key(const char *filename,
+                                coap_crypto_pub_key_t **public) {
+  int ret = 0;
+  mbedtls_pk_context *pk_ctx = mbedtls_malloc(sizeof(mbedtls_pk_context));
+  coap_crypto_pub_key_t *local = mbedtls_malloc(sizeof(coap_crypto_pub_key_t));
+  int pk_ctx_init = 0;
+  uint8_t buf[200];
+
+  if (pk_ctx == NULL || local == NULL)
+    goto error;
+
+  mbedtls_pk_init(pk_ctx);
+  pk_ctx_init = 1;
+  C(mbedtls_pk_parse_public_keyfile(pk_ctx, filename));
+  local->key_tls = pk_ctx;
+
+  ret = mbedtls_pk_write_pubkey_der(pk_ctx, buf, sizeof(buf));
+  if (ret <= 0)
+    goto error;
+  local->key_value = coap_new_bin_const(&buf[sizeof(buf) - ret], ret);
+  if (local->key_value == NULL)
+    goto error;
+
+  *public = local;
+  return 1;
+
+error:
+  mbedtls_free(local);
+  if (pk_ctx_init)
+    mbedtls_pk_free(pk_ctx);
+  mbedtls_free(pk_ctx);
+  return 0;
+}
+
+int
+coap_crypto_read_asn1_public_key(coap_bin_const_t *binary,
+                                 coap_crypto_pub_key_t **public) {
+  int ret = 0;
+  mbedtls_pk_context *pk_ctx = mbedtls_malloc(sizeof(mbedtls_pk_context));
+  coap_crypto_pub_key_t *local = mbedtls_malloc(sizeof(coap_crypto_pub_key_t));
+  int pk_ctx_init = 0;
+  uint8_t buf[200];
+
+  if (pk_ctx == NULL || local == NULL)
+    goto error;
+
+  mbedtls_pk_init(pk_ctx);
+  pk_ctx_init = 1;
+  if (binary->s[2] == 0x02) {
+    /* Is an Integer, not a Sequence, hence private key */
+    C(mbedtls_pk_parse_key(pk_ctx, binary->s, binary->length, NULL, 0));
+  } else {
+    C(mbedtls_pk_parse_public_key(pk_ctx, binary->s, binary->length));
+  }
+  local->key_tls = pk_ctx;
+
+  ret = mbedtls_pk_write_pubkey_der(pk_ctx, buf, sizeof(buf));
+  if (ret <= 0)
+    goto error;
+  local->key_value = coap_new_bin_const(&buf[sizeof(buf) - ret], ret);
+  if (local->key_value == NULL)
+    goto error;
+
+  *public = local;
+  coap_delete_bin_const(binary);
+  return 1;
+
+error:
+  mbedtls_free(local);
+  if (pk_ctx_init)
+    mbedtls_pk_free(pk_ctx);
+  mbedtls_free(pk_ctx);
+  coap_delete_bin_const(binary);
+  return 0;
+}
+
+int
+coap_crypto_read_raw_public_key(cose_curve_t curve,
+                                coap_bin_const_t *binary,
+                                coap_crypto_pub_key_t **public) {
+  (void)curve;
+  (void)binary;
+  (void)public;
+  return 0;
+}
+
+coap_crypto_pub_key_t *
+coap_crypto_duplicate_public_key(coap_crypto_pub_key_t *key) {
+  (void)key;
+  return NULL;
+}
+
+void
+coap_crypto_delete_public_key(coap_crypto_pub_key_t *public) {
+  if (public) {
+    mbedtls_pk_context *pk_ctx = (mbedtls_pk_context *)public->key_tls;
+
+    mbedtls_pk_free(pk_ctx);
+    mbedtls_free(pk_ctx);
+    coap_delete_bin_const(public->key_value);
+    mbedtls_free(public);
+  }
 }
 
 int
 coap_crypto_sign(cose_curve_t curve,
                  coap_binary_t *signature,
                  coap_bin_const_t *ciphertext,
-                 coap_bin_const_t *private_key,
-                 coap_bin_const_t *public_key)
-{
-  (void)curve;
+                 coap_crypto_pri_key_t *private_key,
+                 coap_crypto_pub_key_t *public_key) {
+  int key_type = get_curve_alg(curve);
+  const mbedtls_ecp_curve_info *m_curve = NULL;
+  mbedtls_pk_context key;
+  mbedtls_ctr_drbg_context ctr_drbg;
+  mbedtls_pk_context *pk_ctx = (mbedtls_pk_context *)private_key->key_tls;
+
+  (void)public_key;
   (void)signature;
   (void)ciphertext;
-  (void)private_key;
   (void)public_key;
+  if (key_type == 0)
+    goto error;
+
+  C(mbedtls_pk_sign(pk_ctx,
+                    MBEDTLS_MD_SHA256,
+                    ciphertext->s,
+                    ciphertext->length,
+                    signature->s,
+                    &signature->length,
+                    NULL,
+                    NULL));
+
+#if 0
+  m_curve = mbedtls_ecp_curve_info_from_grp_id(key_type);
+  if (m_curve == NULL)
+    goto error;
+  mbedtls_pk_init(&key);
+  C(mbedtls_ecp_gen_key(key_type, mbedtls_pk_ec(key),
+                                   mbedtls_ctr_drbg_random, &ctr_drbg));
+  ed_key = EVP_PKEY_new_raw_private_key(key_type, NULL, private_key->s,
+                                        private_key->length);
+  if (ed_key == NULL)
+    goto error;
+
+  md_ctx = EVP_MD_CTX_new();
+  if (EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, ed_key) != 1)
+    goto error;
+  /* Calculate the requires size for the signature by passing a NULL buffer */
+  if (EVP_DigestSign(md_ctx, NULL, &signature->length, ciphertext->s,
+                     ciphertext->length) != 1)
+    goto error;
+  if ((sig = OPENSSL_zalloc(signature->length)) == NULL)
+    goto error;
+
+  if (EVP_DigestSign(md_ctx, signature->s, &signature->length, ciphertext->s,
+                     ciphertext->length) != 1)
+    goto error;
+  OPENSSL_free(sig);
+  EVP_MD_CTX_free(md_ctx);
+  EVP_PKEY_free(ed_key);
+#endif
+  return 1;
+
+error:
   return 0;
 }
 
@@ -2833,8 +3158,7 @@ int
 coap_crypto_verify(cose_curve_t curve,
                    coap_binary_t *signature,
                    coap_bin_const_t *plaintext,
-                   coap_bin_const_t *public_key)
-{
+                   coap_crypto_pub_key_t *public_key) {
   (void)curve;
   (void)signature;
   (void)plaintext;
@@ -2842,7 +3166,39 @@ coap_crypto_verify(cose_curve_t curve,
   return 0;
 }
 
-#endif /* HAVE_OSCORE_GROUP */
+int
+coap_crypto_gen_pkey(cose_curve_t curve,
+                     coap_bin_const_t **private,
+                     coap_bin_const_t **public) {
+  (void)curve;
+  (void)private;
+  (void)public;
+  return 0;
+}
+
+int
+coap_crypto_derive_shared_secret(cose_curve_t curve,
+                                 coap_bin_const_t *local_private,
+                                 coap_bin_const_t *peer_public,
+                                 coap_bin_const_t **shared_secret) {
+  (void)curve;
+  (void)local_private;
+  (void)peer_public;
+  (void)shared_secret;
+  return 0;
+}
+
+int
+coap_crypto_hash(cose_alg_t alg,
+                 const coap_bin_const_t *data,
+                 coap_bin_const_t **hash) {
+  (void)alg;
+  (void)data;
+  (void)hash;
+  return 0;
+}
+
+#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
 
 #endif /* HAVE_OSCORE */
 

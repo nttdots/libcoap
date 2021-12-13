@@ -40,6 +40,10 @@ The possible encodings are:
     The value is encoded as a binary representation of the ascii string. This
     string can optionally be enclosed in _"_.
 
+*bool* ::
+    The textual string is either true or false and is subsequently encoded as
+    an integer number.
+
 *hex* ::
     The value is encoded as a binary representation of the hex string. This
     string can optionally be enclosed in _"_.
@@ -47,7 +51,37 @@ The possible encodings are:
 *integer* ::
     The value is encoded as an integer number.
 
+*text* ::
+    The string value is mapped and then encoded as an integer number. This
+    string can optionally be enclosed in _"_. A subset of the Names from
+    https://www.iana.org/assignments/cose/cose.xhtml#algorithms or
+    https://www.iana.org/assignments/cose/cose.xhtml#elliptic-curves are
+    supported.
+
+*pub_file_pem* ::
+    The public key is read from the specified .pem file and is encoded
+    internally as a binary representation of the value. This .pem file can
+    optionally be enclosed in _"_.
+
+*pri_file_pem* ::
+    The private key is read from the specified .pem file and is encoded
+    internally as a binary representation of the value. This .pem file can
+    optionally be enclosed in _"_.
+
+*pub_asn1* ::
+    The public key (encoded as ASN1(DER)) is read from the binary
+    representation of the hex string. This string can optionally be enclosed
+    in _"_.
+
+*pri_asn1* ::
+    The private key (encoded as ASN1(DER)) is read from the binary
+    representation of the hex string. This string can optionally be enclosed
+    in _"_.
+
 The valid keywords are:
+
+OSCORE
+------
 
 *master_secret* ::
     (*hex* or *ascii*) (*Required*) (No default) +
@@ -82,22 +116,71 @@ The valid keywords are:
     are 1 - 63.
 
 *aead_alg* ::
-    (*integer*) (*Optional*) (Default is 10) +
+    (*integer* or *text*) (*Optional*) (Default is 10 or "AES-CCM-16-64-128") +
     RFC8613 Section 3.1. AEAD Algorithm. Only the mandatory and a small subset
     of the algorithms are supported.
 
 *hkdf_alg* ::
-    (*integer*) (*Optional*) (Default is 5) +
+    (*integer* or *text*) (*Optional*) (Default is 5 or "HMAC 256/256") +
     RFC8613 Section 3.1. HDKF Algorithm. Only the mandatory and a small subset
     of the algorithms are supported.
+
+*rfc8613_b_1_2* ::
+    (*bool*) (*Optional*) (Default is true) +
+    RFC8613 Appendix B.1.2. Enable server rebooting Replay Window.
+
+*rfc8613_b_2* ::
+    (*bool*) (*Optional*) (Default is false) +
+    RFC8613 Appendix B.2. Enable Security Context protocol.
+
+OSCORE GROUP
+------------
+
+*group_mode* ::
+    (*bool*) (*Required if Group*) (Default is false) +
+    Enable OSCORE Group mode if true.
+
+*sign_enc_alg* ::
+    (*integer* or *text*) (*Optional*) (Default is 10 or "AES-CCM-16-64-128") +
+    Only the mandatory and a small subset of the algorithms are supported.
+
+*sign_alg* ::
+    (*integer* or *text*) (*Optional*) (Default is -8 or "EdDSA") +
+    Only the mandatory and a small subset of the algorithms are supported.
+
+*sign_curve* ::
+    (*integer* or *text*) (*Optional*) (Default is 6 or "Ed25519") +
+    Only the mandatory and a small subset of the curves are supported.
+
+*gm_public_key* ::
+    (*pub_file_pem* or *pub_asn1*) (*Optional*) (No default) +
+    Group Manager public key.
+
+*sender_private_key* ::
+    (*pri_file_pem* or *pri_asn1*) (*Required if Group*) (No default) +
+    This is the local application private key.
+
+*sender_public_key* ::
+    (*pub_file_pem* or *pub_asn1*) (*Required if Group*) (No default) +
+    This is the local application public key.
+
+*recipient_public_key* ::
+    (*pub_file_pem* or *pub_asn1*) (*Required if Group*) (No default) +
+    This is the remote application public key.
+    For servers, there can be multiple (unique) recipient_public_keys.
+    For clients, there should only be one recipient_public_keys (only the
+    first is used).
+
+GENERAL
+-------
 
 *ssn_freq* ::
     (*integer*) (*Optional*) (Default is 1) +
     RFC8613 Appendix B.1.1. Sender Sequence Number frequency non-volatile
     storage update rate. Has to be a positive number.
 
-EXAMPLE SERVER CONFIGURATION FILE
----------------------------------
+EXAMPLE SERVER OSCORE CONFIGURATION FILE
+----------------------------------------
 
 [source, c]
 ----
@@ -114,8 +197,8 @@ sender_id,ascii,"server"
 # Recipient ID
 recipient_id,ascii,"client"
 
-# Replay Window (usually 30)
-replay_window,integer,30
+# Replay Window (usually 32)
+replay_window,integer,32
 
 # AEAD COSE Cipher Algorithm (usually 10)
 aead_alg,integer,10
@@ -125,8 +208,8 @@ hkdf_alg,integer,5
 
 ----
 
-EXAMPLE CLIENT CONFIGURATION FILE
----------------------------------
+EXAMPLE CLIENT OSCORE CONFIGURATION FILE
+----------------------------------------
 
 [source, c]
 ----
@@ -143,14 +226,98 @@ sender_id,ascii,"client"
 # Recipient ID (It is the server that is remote)
 recipient_id,ascii,"server"
 
-# Replay Window (usually 30)
-replay_window,integer,30
+# Replay Window (usually 32)
+replay_window,integer,32
 
 # AEAD COSE Cipher Algorithm (usually 10)
 aead_alg,integer,10
 
 # HKDF COSE hash Algorithm (usually 5)
 hkdf_alg,integer,5
+
+----
+
+EXAMPLE SERVER OSCORE GROUP CONFIGURATION FILE
+----------------------------------------------
+
+[source, c]
+----
+
+# Master Secret (same for both client and server)
+master_secret,hex,"0102030405060708090a0b0c0d0e0f10"
+
+# Master Salt (same for both client and server)
+master_salt,hex,"9e7ca92223786340"
+
+# Sender ID
+sender_id,ascii,"server"
+
+# Recipient ID
+recipient_id,ascii,"client"
+
+# Replay Window (usually 32)
+replay_window,integer,32
+
+# AEAD COSE Cipher Algorithm (usually 10)
+aead_alg,integer,10
+
+# HKDF COSE hash Algorithm (usually 5)
+hkdf_alg,integer,5
+
+# Configure as Group Mode
+group_mode,bool,true
+
+# ID Context (same for both client and server)
+id_context,hex,"120406"
+
+# Sender Keys (This is the server who is the Sender)
+sender_private_key,pri_asn1,"302e020100300506032b657004220420475c40ff2a0ff59290a6e815cf9233a186722bfa9e3f5a5aac9cdc6b50b571af"
+sender_public_key,pub_asn1,"302a300506032b65700321002de63a7f1a003de75debce4b33f02b8efd5dc39a58e59db56d1975ccdc23eae1"
+
+# Recipient Key (It is the client that is remote)
+recipient_public_key,pub_asn1,"302a300506032b6570032100cca3677a114856e5a0e605c13796178fad7c3329a980bc32cb406b928fa23f30"
+
+----
+
+EXAMPLE CLIENT OSCORE GROUP CONFIGURATION FILE
+----------------------------------------------
+
+[source, c]
+----
+
+# Master Secret (same for both client and server)
+master_secret,hex,"0102030405060708090a0b0c0d0e0f10"
+
+# Master Salt (same for both client and server)
+# master_salt,hex,"9e7ca92223786340"
+
+# Sender ID (This is the client who is the Sender)
+sender_id,ascii,"client"
+
+# Recipient ID (It is the server that is remote)
+recipient_id,ascii,"server"
+
+# Replay Window (usually 32)
+replay_window,integer,32
+
+# AEAD COSE Cipher Algorithm (usually 10)
+aead_alg,integer,10
+
+# HKDF COSE hash Algorithm (usually 5)
+hkdf_alg,integer,5
+
+# Configure as Group Mode
+group_mode,bool,true
+
+# ID Context (same for both client and server)
+id_context,hex,"120406"
+
+# Sender Keys (This is the client who is the Sender)
+sender_private_key,hex,"302e020100300506032b657004220420ad259fb5f8c6df50f5b8c1627a201a5f219367a89ef5171eb254af19950691fd"
+sender_public_key,pub_asn1,"302a300506032b6570032100cca3677a114856e5a0e605c13796178fad7c3329a980bc32cb406b928fa23f30"
+
+# Recipient Key (It is the server that is remote)
+recipient_public_key,hex,"302a300506032b65700321002de63a7f1a003de75debce4b33f02b8efd5dc39a58e59db56d1975ccdc23eae1"
 
 ----
 

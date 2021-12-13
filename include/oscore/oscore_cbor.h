@@ -42,7 +42,6 @@
  *
  */
 
-
 #ifndef _OSCORE_CBOR_H
 #define _OSCORE_CBOR_H
 #include <stddef.h>
@@ -66,9 +65,8 @@
 #define CBOR_SIMPLE_VALUE     7
 #define CBOR_FLOATING_POINT   7
 
-#define CBOR_FALSE            20
-#define CBOR_TRUE             21
-
+#define CBOR_FALSE 20
+#define CBOR_TRUE  21
 
 size_t oscore_cbor_put_nil(uint8_t **buffer, size_t *buf_size);
 
@@ -76,31 +74,35 @@ size_t oscore_cbor_put_true(uint8_t **buffer, size_t *buf_size);
 
 size_t oscore_cbor_put_false(uint8_t **buffer, size_t *buf_size);
 
-size_t oscore_cbor_put_text(uint8_t **buffer, size_t *buf_size,
-                            const char *text, uint64_t text_len);
+size_t oscore_cbor_put_text(uint8_t **buffer,
+                            size_t *buf_size,
+                            const char *text,
+                            uint64_t text_len);
 
-size_t oscore_cbor_put_array(uint8_t **buffer, size_t *buf_size,
-                             uint64_t elements);
+size_t
+oscore_cbor_put_array(uint8_t **buffer, size_t *buf_size, uint64_t elements);
 
-size_t oscore_cbor_put_bytes(uint8_t **buffer, size_t *buf_size,
-                             const uint8_t *bytes, uint64_t bytes_len);
+size_t oscore_cbor_put_bytes(uint8_t **buffer,
+                             size_t *buf_size,
+                             const uint8_t *bytes,
+                             uint64_t bytes_len);
 
-size_t oscore_cbor_put_map(uint8_t **buffer, size_t *buf_size,
-                           uint64_t elements);
+size_t
+oscore_cbor_put_map(uint8_t **buffer, size_t *buf_size, uint64_t elements);
 
-size_t oscore_cbor_put_number(uint8_t **buffer, size_t *buf_size,
-                              int64_t value);
+size_t
+oscore_cbor_put_number(uint8_t **buffer, size_t *buf_size, int64_t value);
 
-size_t oscore_cbor_put_simple_value(uint8_t **buffer, size_t *buf_size,
-                                   uint8_t value);
+size_t
+oscore_cbor_put_simple_value(uint8_t **buffer, size_t *buf_size, uint8_t value);
 
-size_t oscore_cbor_put_unsigned(uint8_t **buffer, size_t *buf_size,
-                                uint64_t value);
+size_t
+oscore_cbor_put_unsigned(uint8_t **buffer, size_t *buf_size, uint64_t value);
 
 size_t oscore_cbor_put_tag(uint8_t **buffer, size_t *buf_size, uint64_t value);
 
-size_t oscore_cbor_put_negative(uint8_t **buffer, size_t *buf_size,
-                                int64_t value);
+size_t
+oscore_cbor_put_negative(uint8_t **buffer, size_t *buf_size, int64_t value);
 
 uint8_t oscore_cbor_get_next_element(const uint8_t **buffer);
 
@@ -108,29 +110,24 @@ uint64_t oscore_cbor_get_element_size(const uint8_t **buffer);
 
 uint8_t oscore_cbor_elem_contained(const uint8_t *data, uint8_t *end);
 
-uint8_t
-oscore_cbor_get_number(const uint8_t **data, int64_t *value);
+uint8_t oscore_cbor_get_number(const uint8_t **data, int64_t *value);
 
-uint8_t
-oscore_cbor_get_simple_value(const uint8_t **data, uint8_t *value);
+uint8_t oscore_cbor_get_simple_value(const uint8_t **data, uint8_t *value);
 
-int64_t
-oscore_cbor_get_negative_integer(const uint8_t **buffer);
+int64_t oscore_cbor_get_negative_integer(const uint8_t **buffer);
 
-uint64_t
-oscore_cbor_get_unsigned_integer(const uint8_t **buffer);
+uint64_t oscore_cbor_get_unsigned_integer(const uint8_t **buffer);
 
-void
-oscore_cbor_get_string(const uint8_t **buffer, char *str, uint64_t size);
+void oscore_cbor_get_string(const uint8_t **buffer, char *str, uint64_t size);
 
-void
-oscore_cbor_get_array(const uint8_t **buffer, uint8_t *arr, uint64_t size);
+void oscore_cbor_get_array(const uint8_t **buffer, uint8_t *arr, uint64_t size);
 
 /* oscore_cbor_get_string_array
  * fills the the size and the array from the cbor element
  */
-uint8_t
-oscore_cbor_get_string_array(const uint8_t **data, uint8_t **result, size_t *len);
+uint8_t oscore_cbor_get_string_array(const uint8_t **data,
+                                     uint8_t **result,
+                                     size_t *len);
 
 /* oscore_cbor_strip value
  * strips the value of the cbor element into result

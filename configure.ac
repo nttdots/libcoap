@@ -613,7 +613,7 @@ AC_ARG_ENABLE([oscore-group],
               [AS_HELP_STRING([--enable-oscore-group],
                               [Enable building with Group OSCORE support (Experimental) [default=no]])],
               [build_oscore_group="$enableval"],
-              [build_oscore_group="no"])
+              [build_oscore_group="yes"])
 
 if test "x$build_oscore_group" = "xyes"; then
     if test "x$build_oscore" = "xno"; then
@@ -630,7 +630,7 @@ AC_ARG_ENABLE([oscore-edhoc],
               [AS_HELP_STRING([--enable-oscore-edhoc],
                               [Enable building with Group OSCORE EDHOC (Experimental) [default=no]])],
               [build_oscore_edhoc="$enableval"],
-              [build_oscore_edhoc="no"])
+              [build_oscore_edhoc="yes"])
 
 if test "x$build_oscore_edhoc" = "xyes"; then
     if test "x$build_oscore" = "xno"; then

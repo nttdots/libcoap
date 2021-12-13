@@ -73,7 +73,11 @@ option(
 option(
   ENABLE_OSCORE_GROUP
   "compile with support for OSCORE Group"
-  ON)
+  OFF)
+option(
+  ENABLE_OSCORE_EDHOC
+  "compile with support for OSCORE EDHOC"
+  OFF)
 option(
   WITH_EPOLL
   "compile with epoll support"
@@ -447,6 +451,7 @@ message(STATUS "ENABLE_CLIENT_MODE:..............${ENABLE_CLIENT_MODE}")
 message(STATUS "ENABLE_SERVER_MODE:..............${ENABLE_SERVER_MODE}")
 message(STATUS "ENABLE_OSCORE:...................${ENABLE_OSCORE}")
 message(STATUS "ENABLE_OSCORE_GROUP:.............${ENABLE_OSCORE_GROUP}")
+message(STATUS "ENABLE_OSCORE_EDHOC:.............${ENABLE_OSCORE_EDHOC}")
 message(STATUS "ENABLE_DOCS:.....................${ENABLE_DOCS}")
 message(STATUS "ENABLE_EXAMPLES:.................${ENABLE_EXAMPLES}")
 message(STATUS "DTLS_BACKEND:....................${DTLS_BACKEND}")

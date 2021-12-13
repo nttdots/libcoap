@@ -21,24 +21,22 @@
 #ifdef HAVE_OSCORE
 #include <ctype.h>
 
-#define AAD_BUF_LEN 120      /* length of aad_buffer */
+#define AAD_BUF_LEN 200 /* length of aad_buffer */
 
-static oscore_ctx_t *
-coap_oscore_init(coap_context_t *c_context, coap_oscore_conf_t *oscore_conf);
+static oscore_ctx_t *coap_oscore_init(coap_context_t *c_context,
+                                      coap_oscore_conf_t *oscore_conf);
 
 #ifdef COAP_CLIENT_SUPPORT
 
 int
-coap_oscore_initiate(coap_session_t *session,
-                     coap_oscore_conf_t *oscore_conf)
-{
+coap_oscore_initiate(coap_session_t *session, coap_oscore_conf_t *oscore_conf) {
   if (oscore_conf) {
     oscore_ctx_t *osc_ctx;
 
 #ifdef HAVE_OSCORE_EDHOC
     if (oscore_conf->use_edhoc) {
       edhoc_ctx_t *edhoc_ctx =
-                          edhoc_new_context_initiator(session, oscore_conf);
+          edhoc_new_context_initiator(session, oscore_conf);
 
       if (edhoc_ctx == NULL)
         return 0;
@@ -51,6 +49,16 @@ coap_oscore_initiate(coap_session_t *session,
       coap_log(LOG_WARNING,
                "OSCORE: Recipient ID must be defined for a client\n");
       return 0;
+    }
+    if (oscore_conf->rfc8613_b_2) {
+      /* Need to replace id_context with random value */
+      coap_binary_t *id_context = coap_new_binary(8);
+
+      if (id_context == NULL)
+        return 0;
+      coap_delete_bin_const(oscore_conf->id_context);
+      coap_prng(id_context->s, id_context->length);
+      oscore_conf->id_context = (coap_bin_const_t *)id_context;
     }
 
     osc_ctx = coap_oscore_init(session->context, oscore_conf);
@@ -68,10 +76,9 @@ coap_new_client_session_oscore(coap_context_t *ctx,
                                const coap_address_t *local_if,
                                const coap_address_t *server,
                                coap_proto_t proto,
-                               coap_oscore_conf_t *oscore_conf)
-{
-  coap_session_t *session = coap_new_client_session(ctx, local_if, server,
-                                                    proto);
+                               coap_oscore_conf_t *oscore_conf) {
+  coap_session_t *session =
+      coap_new_client_session(ctx, local_if, server, proto);
 
   if (!session)
     return NULL;
@@ -89,10 +96,9 @@ coap_new_client_session_oscore_psk(coap_context_t *ctx,
                                    const coap_address_t *server,
                                    coap_proto_t proto,
                                    coap_dtls_cpsk_t *psk_data,
-                                   coap_oscore_conf_t *oscore_conf)
-{
-  coap_session_t *session = coap_new_client_session_psk2(ctx, local_if, server,
-                                                       proto, psk_data);
+                                   coap_oscore_conf_t *oscore_conf) {
+  coap_session_t *session =
+      coap_new_client_session_psk2(ctx, local_if, server, proto, psk_data);
 
   if (!session)
     return NULL;
@@ -110,10 +116,9 @@ coap_new_client_session_oscore_pki(coap_context_t *ctx,
                                    const coap_address_t *server,
                                    coap_proto_t proto,
                                    coap_dtls_pki_t *pki_data,
-                                   coap_oscore_conf_t *oscore_conf)
-{
-  coap_session_t *session = coap_new_client_session_pki(ctx, local_if, server,
-                                                      proto, pki_data);
+                                   coap_oscore_conf_t *oscore_conf) {
+  coap_session_t *session =
+      coap_new_client_session_pki(ctx, local_if, server, proto, pki_data);
 
   if (!session)
     return NULL;
@@ -129,8 +134,7 @@ coap_new_client_session_oscore_pki(coap_context_t *ctx,
 
 int
 coap_context_oscore_server(coap_context_t *context,
-                           coap_oscore_conf_t *oscore_conf)
-{
+                           coap_oscore_conf_t *oscore_conf) {
 #ifdef HAVE_OSCORE_EDHOC
   int use_edhoc = oscore_conf->use_edhoc;
 #endif /* HAVE_OSCORE_EDHOC */
@@ -152,36 +156,39 @@ coap_context_oscore_server(coap_context_t *context,
 #endif /* COAP_SERVER_SUPPORT */
 
 static void
-dump_cose(cose_encrypt0_t *cose, const char *message)
-{
-  if (coap_get_log_level() >= COAP_LOG_CIPHERS) {
-    coap_log(COAP_LOG_CIPHERS, "%s Cose information\n", message);
-    oscore_log_int_value(COAP_LOG_CIPHERS, "alg", cose->alg);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "key", &cose->key);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "partial_iv", &cose->partial_iv);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "key_id", &cose->key_id);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "kid_context", &cose->kid_context);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "oscore_option", &cose->oscore_option);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "nonce", &cose->nonce);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "aad", &cose->aad);
+dump_cose(cose_encrypt0_t *cose, const char *message) {
+  if (coap_get_log_level() >= COAP_LOG_OSCORE) {
+    coap_log(COAP_LOG_OSCORE, "%s Cose information\n", message);
+    oscore_log_int_value(COAP_LOG_OSCORE, "alg", cose->alg);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "key", &cose->key);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "partial_iv", &cose->partial_iv);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "key_id", &cose->key_id);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "kid_context", &cose->kid_context);
+    oscore_log_hex_value(COAP_LOG_OSCORE,
+                         "oscore_option",
+                         &cose->oscore_option);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "nonce", &cose->nonce);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "aad", &cose->aad);
 #ifdef HAVE_OSCORE_GROUP
-    oscore_log_int_value(COAP_LOG_CIPHERS, "group_flag", cose->group_flag);
+    oscore_log_int_value(COAP_LOG_OSCORE, "group_flag", cose->group_flag);
 #endif /* HAVE_OSCORE_GROUP */
   }
 }
 
-#define MAX_IV_LEN  10      /* maximum length of iv buffer */
+#define MAX_IV_LEN 10 /* maximum length of iv buffer */
 /*
  * Take current PDU, create a new one approriately separated as per RFC8613
  * and then encrypt / integrity check the OSCORE data
  */
 coap_pdu_t *
-coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
-                              coap_bin_const_t *echo_value, int send_partial_iv)
-{
+coap_oscore_new_pdu_encrypted(coap_session_t *session,
+                              coap_pdu_t *pdu,
+                              coap_bin_const_t *echo_value,
+                              coap_bin_const_t *kid_context,
+                              int send_partial_iv) {
   uint8_t coap_request = COAP_PDU_IS_REQUEST(pdu);
-  coap_pdu_code_t code = coap_request ? COAP_REQUEST_CODE_POST :
-                                        COAP_RESPONSE_CODE(204);
+  coap_pdu_code_t code =
+      coap_request ? COAP_REQUEST_CODE_POST : COAP_RESPONSE_CODE(204);
   coap_pdu_t *osc_pdu;
   coap_pdu_t *plain_pdu = NULL;
   coap_bin_const_t pdu_token;
@@ -198,7 +205,7 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
   coap_bin_const_t aad;
   coap_bin_const_t nonce;
   oscore_recipient_ctx_t *rcp_ctx = session->recipient_ctx;
-  oscore_ctx_t *osc_ctx = rcp_ctx ? rcp_ctx->common_ctx : NULL;
+  oscore_ctx_t *osc_ctx = rcp_ctx ? rcp_ctx->osc_ctx : NULL;
   cose_encrypt0_t cose[1];
 #ifdef HAVE_OSCORE_GROUP
   cose_sign1_t sign[1];
@@ -211,14 +218,11 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
   oscore_association_t *association = NULL;
   uint8_t partial_iv_buffer[MAX_IV_LEN];
   size_t partial_iv_len;
-  oscore_sender_ctx_t *snd_ctx = osc_ctx->sender_context;
-  uint8_t external_aad_buffer[100];
+  oscore_sender_ctx_t *snd_ctx = osc_ctx ? osc_ctx->sender_context : NULL;
+  uint8_t external_aad_buffer[200];
   size_t external_aad_len = 0;
   uint8_t oscore_option[20];
   size_t oscore_option_len;
-
-  if (osc_ctx == NULL)
-    return NULL;
 
   /* Check that OSCORE has not already been done */
   if (coap_check_option(pdu, COAP_OPTION_OSCORE, &opt_iter))
@@ -228,12 +232,14 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
     doing_observe = 1;
 
   coap_show_pdu(LOG_DEBUG, pdu);
-  osc_pdu = coap_pdu_init(pdu->type, code, pdu->mid,
+  osc_pdu = coap_pdu_init(pdu->type,
+                          code,
+                          pdu->mid,
                           coap_session_max_pdu_size(session));
   if (osc_pdu == NULL)
     return NULL;
 
-  cose_encrypt0_init(cose);  /* clears cose memory */
+  cose_encrypt0_init(cose); /* clears cose memory */
   pdu_token = coap_pdu_get_token(pdu);
   if (coap_request) {
     /*
@@ -243,10 +249,9 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
     rcp_ctx = session->recipient_ctx;
     if (rcp_ctx == NULL)
       goto error;
-    osc_ctx = rcp_ctx->common_ctx;
+    osc_ctx = rcp_ctx->osc_ctx;
     snd_ctx = osc_ctx->sender_context;
-  }
-  else {
+  } else {
     /*
      * RFC8613 8.3 Step 1. Protecting the server's response
      * Get the Sender Context
@@ -256,7 +261,7 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
       goto error;
 
     rcp_ctx = association->recipient_ctx;
-    osc_ctx = rcp_ctx->common_ctx;
+    osc_ctx = rcp_ctx->osc_ctx;
     snd_ctx = osc_ctx->sender_context;
     cose_encrypt0_set_partial_iv(cose, association->partial_iv);
     cose_encrypt0_set_aad(cose, association->aad);
@@ -315,11 +320,10 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
         /* Only update at ssn_freq rate */
         osc_ctx->sender_context->next_seq += osc_ctx->ssn_freq;
         osc_ctx->save_seq_num_func(osc_ctx->sender_context->next_seq,
-                                 osc_ctx->save_seq_num_func_param);
+                                   osc_ctx->save_seq_num_func_param);
       }
     }
-  }
-  else {
+  } else {
     /*
      * 8.3 Step 3.
      * Use nonce from request
@@ -336,13 +340,18 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
     if (!doing_observe && !send_partial_iv)
       cose_encrypt0_set_partial_iv(cose, NULL);
   }
-  oscore_option_len = oscore_encode_option_value(oscore_option, cose,
-                                                 group_flag);
+  if (kid_context) {
+    cose_encrypt0_set_kid_context(cose, kid_context);
+  }
+  oscore_option_len =
+      oscore_encode_option_value(oscore_option, cose, group_flag);
   if (!coap_request) {
     /* Reset what was just unset as appropriate for AAD */
     cose_encrypt0_set_key_id(cose, rcp_ctx->recipient_id);
     cose_encrypt0_set_partial_iv(cose, association->partial_iv);
   }
+  if (kid_context)
+    cose_encrypt0_set_kid_context(cose, osc_ctx->id_context);
 
   /*
    * RFC8613 8.1/8.3 Step 2(a) (5.4).
@@ -374,28 +383,31 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
    *
    * Note: No I options at present
    */
-
-
-  if (coap_request || osc_ctx->mode != OSCORE_MODE_SINGLE ||
-      send_partial_iv) {
+  if (coap_request || osc_ctx->mode != OSCORE_MODE_SINGLE || send_partial_iv) {
     /* External AAD */
-    external_aad_len = oscore_prepare_e_aad(osc_ctx, cose,
+    external_aad_len = oscore_prepare_e_aad(
+        osc_ctx,
+        cose,
 #ifdef HAVE_OSCORE_GROUP
-                                            oscore_option,
-                                            oscore_option_len,
-                                            osc_ctx->sender_context->public_key,
-#else /* HAVE_OSCORE_GROUP */
-                                            NULL,
-                                            0,
-                                            NULL,
+        oscore_option,
+        oscore_option_len,
+        osc_ctx->sender_context->public_key
+            ? osc_ctx->sender_context->public_key->key_value
+            : NULL,
+#else  /* HAVE_OSCORE_GROUP */
+        NULL,
+        0,
+        NULL,
 #endif /* HAVE_OSCORE_GROUP */
-                                            external_aad_buffer,
-                                            sizeof(external_aad_buffer));
+        external_aad_buffer,
+        sizeof(external_aad_buffer));
 
     /* AAD */
     aad.s = aad_buffer;
-    aad.length = oscore_prepare_aad(external_aad_buffer, external_aad_len,
-                                    aad_buffer, sizeof(aad_buffer));
+    aad.length = oscore_prepare_aad(external_aad_buffer,
+                                    external_aad_len,
+                                    aad_buffer,
+                                    sizeof(aad_buffer));
     assert(aad.length < AAD_BUF_LEN);
     cose_encrypt0_set_aad(cose, &aad);
   }
@@ -406,8 +418,10 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
    * Set up temp plaintext pdu, the data including token, options and
    * optional payload will get encrypted as COSE ciphertext.
    */
-  plain_pdu = coap_pdu_init(pdu->type, pdu->code, pdu->mid,
-                          coap_session_max_pdu_size(session));
+  plain_pdu = coap_pdu_init(pdu->type,
+                            pdu->code,
+                            pdu->mid,
+                            coap_session_max_pdu_size(session));
   if (plain_pdu == NULL)
     goto error;
 
@@ -425,29 +439,30 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
     case COAP_OPTION_PROXY_SCHEME:
     case COAP_OPTION_HOP_LIMIT:
       /* Outer only */
-      if (!coap_insert_option(osc_pdu, opt_iter.number,
-                           coap_opt_length(option),
-                           coap_opt_value(option)))
+      if (!coap_insert_option(osc_pdu,
+                              opt_iter.number,
+                              coap_opt_length(option),
+                              coap_opt_value(option)))
         goto error;
       break;
     case COAP_OPTION_OBSERVE:
       /* Make as Outer option as-is */
-      if (!coap_insert_option(osc_pdu, opt_iter.number,
-                           coap_opt_length(option),
-                           coap_opt_value(option)))
+      if (!coap_insert_option(osc_pdu,
+                              opt_iter.number,
+                              coap_opt_length(option),
+                              coap_opt_value(option)))
         goto error;
       if (coap_request) {
         /* Make as Inner option (unchanged) */
-        if (!coap_insert_option(plain_pdu, opt_iter.number,
+        if (!coap_insert_option(plain_pdu,
+                                opt_iter.number,
                                 coap_opt_length(option),
                                 coap_opt_value(option)))
           goto error;
         osc_pdu->code = COAP_REQUEST_CODE_FETCH;
-      }
-      else {
+      } else {
         /* Make as Inner option but empty */
-        if (!coap_insert_option(plain_pdu, opt_iter.number,
-                                0, NULL))
+        if (!coap_insert_option(plain_pdu, opt_iter.number, 0, NULL))
           goto error;
         osc_pdu->code = COAP_RESPONSE_CODE(205);
       }
@@ -459,63 +474,72 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
     case COAP_OPTION_PROXY_URI:
       /* Need to break down into the component parts RFC8613 4.1.3.3 */
       memset(&uri, 0, sizeof(uri));
-      if (coap_split_proxy_uri(coap_opt_value(option), coap_opt_length(option),
+      if (coap_split_proxy_uri(coap_opt_value(option),
+                               coap_opt_length(option),
                                &uri) < 0) {
-        coap_log(LOG_WARNING, "Proxy URI '%.*s' not decodable\n",
+        coap_log(LOG_WARNING,
+                 "Proxy URI '%.*s' not decodable\n",
                  coap_opt_length(option),
-                 (const char*)coap_opt_value(option));
+                 (const char *)coap_opt_value(option));
         goto error;
       }
       /* Outer options */
-      if (!coap_insert_option(osc_pdu, COAP_OPTION_URI_HOST, uri.host.length,
-                           uri.host.s))
+      if (!coap_insert_option(osc_pdu,
+                              COAP_OPTION_URI_HOST,
+                              uri.host.length,
+                              uri.host.s))
         goto error;
-      if (uri.port != (coap_uri_scheme_is_secure(&uri) ? COAPS_DEFAULT_PORT :
-                                                         COAP_DEFAULT_PORT) &&
-          !coap_insert_option(osc_pdu, COAP_OPTION_URI_PORT,
+      if (uri.port != (coap_uri_scheme_is_secure(&uri) ? COAPS_DEFAULT_PORT
+                                                       : COAP_DEFAULT_PORT) &&
+          !coap_insert_option(osc_pdu,
+                              COAP_OPTION_URI_PORT,
                               coap_encode_var_safe(option_value_buffer,
                                                    sizeof(option_value_buffer),
                                                    uri.port & 0xffff),
                               option_value_buffer))
         goto error;
       if (uri.scheme >= COAP_URI_SCHEME_LAST ||
-          !coap_insert_option(osc_pdu, COAP_OPTION_PROXY_SCHEME,
+          !coap_insert_option(osc_pdu,
+                              COAP_OPTION_PROXY_SCHEME,
                               strlen(coap_uri_scheme[uri.scheme]),
                               (const uint8_t *)coap_uri_scheme[uri.scheme]))
         goto error;
       /* Inner options */
       if (uri.path.length) {
         uint8_t *buf;
-        size_t buflen = uri.path.length+1;
+        uint8_t *kbuf;
+        size_t buflen = uri.path.length + 1;
         int res;
 
-        buf = coap_malloc(uri.path.length + 1);
+        kbuf = buf = coap_malloc(uri.path.length + 1);
         if (buf) {
           res = coap_split_path(uri.path.s, uri.path.length, buf, &buflen);
           while (res--) {
-            if (!coap_insert_option(plain_pdu, COAP_OPTION_URI_PATH,
-                coap_opt_length(buf),
-                coap_opt_value(buf))) {
+            if (!coap_insert_option(plain_pdu,
+                                    COAP_OPTION_URI_PATH,
+                                    coap_opt_length(buf),
+                                    coap_opt_value(buf))) {
               coap_free(buf);
               goto error;
             }
             buf += coap_opt_size(buf);
           }
         }
-        coap_free(buf);
+        coap_free(kbuf);
       }
       if (uri.query.length) {
-         uint8_t *buf;
-        size_t buflen = uri.query.length+1;
+        uint8_t *buf;
+        size_t buflen = uri.query.length + 1;
         int res;
 
         buf = coap_malloc(uri.query.length + 1);
         if (buf) {
           res = coap_split_query(uri.query.s, uri.query.length, buf, &buflen);
           while (res--) {
-            if (!coap_insert_option(plain_pdu, COAP_OPTION_URI_QUERY,
-                coap_opt_length(buf),
-                coap_opt_value(buf))) {
+            if (!coap_insert_option(plain_pdu,
+                                    COAP_OPTION_URI_QUERY,
+                                    coap_opt_length(buf),
+                                    coap_opt_value(buf))) {
               coap_free(buf);
               goto error;
             }
@@ -529,7 +553,8 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
       break;
     default:
       /* Make as Inner option */
-      if (!coap_insert_option(plain_pdu, opt_iter.number,
+      if (!coap_insert_option(plain_pdu,
+                              opt_iter.number,
                               coap_opt_length(option),
                               coap_opt_value(option)))
         goto error;
@@ -538,7 +563,8 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
   }
   if (echo_value) {
     /* Add in Inner Echo option response */
-    if (!coap_insert_option(plain_pdu, COAP_OPTION_ECHO,
+    if (!coap_insert_option(plain_pdu,
+                            COAP_OPTION_ECHO,
                             echo_value->length,
                             echo_value->s))
       goto error;
@@ -550,8 +576,8 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
       goto error;
   }
   if (show_pdu) {
-    coap_log(COAP_LOG_CIPHERS, "OSCORE payload\n");
-    coap_show_pdu(COAP_LOG_CIPHERS, plain_pdu);
+    coap_log(COAP_LOG_OSCORE, "OSCORE payload\n");
+    coap_show_pdu(COAP_LOG_OSCORE, plain_pdu);
   }
 
   /*
@@ -568,8 +594,8 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
   cose_encrypt0_set_key(cose, snd_ctx->sender_key);
   cose_encrypt0_set_plaintext(cose, plain_pdu->token, plain_pdu->used_size);
   dump_cose(cose, "Pre encrypt");
-  ciphertext_buffer = coap_malloc_type(COAP_OSCORE_BUF,
-                                       OSCORE_CRYPTO_BUFFER_SIZE);
+  ciphertext_buffer =
+      coap_malloc_type(COAP_OSCORE_BUF, OSCORE_CRYPTO_BUFFER_SIZE);
   ciphertext_len = cose_encrypt0_encrypt(cose,
                                          ciphertext_buffer,
                                          plain_pdu->used_size + AES_CCM_TAG);
@@ -578,45 +604,63 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
 #ifdef HAVE_OSCORE_GROUP
   if (osc_ctx->mode != OSCORE_MODE_SINGLE /* && coap_request */) {
     /* sign request message */
+    size_t sign_size = snd_ctx->public_key->sign_size;
     uint8_t *sig_buffer = NULL;
     size_t sig_len = external_aad_len + ciphertext_len + 30;
-    int sign_res;
-    uint8_t keystream[Ed25519_SIGNATURE_LEN];
+    uint8_t *keystream = coap_malloc(sign_size);
     uint8_t *buffer = ciphertext_buffer + ciphertext_len;
 
+    assert(ciphertext_len + sign_size < OSCORE_CRYPTO_BUFFER_SIZE);
+
+    if (keystream == NULL)
+      goto error;
     sig_buffer = coap_malloc(sig_len);
-    oscore_populate_sign(sign, osc_ctx, snd_ctx->public_key,
+    if (sig_buffer == NULL)
+      goto error;
+    oscore_populate_sign(sign,
+                         osc_ctx,
+                         snd_ctx->public_key,
                          snd_ctx->private_key);
-    sig_len = oscore_prepare_sig_structure(sig_buffer, sig_len,
+    sig_len = oscore_prepare_sig_structure(sig_buffer,
+                                           sig_len,
                                            external_aad_buffer,
                                            external_aad_len,
                                            ciphertext_buffer,
                                            ciphertext_len);
-    cose_sign1_set_signature(sign, ciphertext_buffer + ciphertext_len);
+    cose_sign1_set_signature(sign,
+                             ciphertext_buffer + ciphertext_len,
+                             sign_size);
     cose_sign1_set_ciphertext(sign, sig_buffer, sig_len);
-    sign_res = cose_sign1_sign(sign);
+    sign_size = cose_sign1_sign(sign);
     coap_free(sig_buffer);
-    if (sign_res ==0 ){
-      coap_log(LOG_WARNING,"OSCORE: Signature Failure \n");
+    if (sign_size == 0) {
+      coap_log(LOG_WARNING, "OSCORE: Signature Failure \n");
+      coap_free(keystream);
       goto error;
     }
     /* signature at end of encrypted text  */
-    ciphertext_len += Ed25519_SIGNATURE_LEN;
-    assert(ciphertext_len + Ed25519_SIGNATURE_LEN < OSCORE_CRYPTO_BUFFER_SIZE);
+    ciphertext_len += sign_size;
 
     /* ENC_SIGNATURE = SIGNATURE XOR KEYSTREAM */
-    oscore_derive_keystream(osc_ctx, cose, coap_request,
+    oscore_derive_keystream(osc_ctx,
+                            cose,
+                            coap_request,
                             snd_ctx->sender_id,
-                            osc_ctx->id_context, Ed25519_SIGNATURE_LEN,
-                            keystream, sizeof(keystream));
-    for(int i = 0; i < Ed25519_SIGNATURE_LEN; i++) {
-      buffer[i] = buffer[i] ^ (uint8_t)keystream[i];
+                            osc_ctx->id_context,
+                            sign_size,
+                            keystream,
+                            sign_size);
+    for (size_t i = 0; i < sign_size; i++) {
+      buffer[i] = buffer[i] ^ keystream[i];
     }
+    coap_free(keystream);
   }
 #endif /* HAVE_OSCORE_GROUP */
 
   /* Add in OSCORE option (previously computed) */
-  if (!coap_insert_option(osc_pdu, COAP_OPTION_OSCORE, oscore_option_len,
+  if (!coap_insert_option(osc_pdu,
+                          COAP_OPTION_OSCORE,
+                          oscore_option_len,
                           oscore_option))
     goto error;
 
@@ -649,8 +693,8 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
       }
       /* Refresh the association */
       coap_delete_bin_const(association->nonce);
-      association->nonce = coap_new_bin_const(cose->nonce.s,
-                                              cose->nonce.length);
+      association->nonce =
+          coap_new_bin_const(cose->nonce.s, cose->nonce.length);
       if (association->nonce == NULL)
         goto error;
       coap_delete_bin_const(association->aad);
@@ -658,68 +702,77 @@ coap_oscore_new_pdu_encrypted(coap_session_t *session, coap_pdu_t *pdu,
       if (association->aad == NULL)
         goto error;
       coap_delete_bin_const(association->partial_iv);
-      association->partial_iv = coap_new_bin_const(cose->partial_iv.s,
-                                                   cose->partial_iv.length);
+      association->partial_iv =
+          coap_new_bin_const(cose->partial_iv.s, cose->partial_iv.length);
       if (association->partial_iv == NULL)
         goto error;
       association->recipient_ctx = rcp_ctx;
-    }
-    else if (!oscore_new_association(session, &pdu_token,
-                                     rcp_ctx, &cose->aad, &cose->nonce,
-                                     &cose->partial_iv, doing_observe)) {
+    } else if (!oscore_new_association(session,
+                                       &pdu_token,
+                                       rcp_ctx,
+                                       &cose->aad,
+                                       &cose->nonce,
+                                       &cose->partial_iv,
+                                       doing_observe)) {
       goto error;
     }
   }
   return osc_pdu;
 
 error:
-  if (ciphertext_buffer) coap_free_type(COAP_OSCORE_BUF, ciphertext_buffer);
+  if (ciphertext_buffer)
+    coap_free_type(COAP_OSCORE_BUF, ciphertext_buffer);
   coap_delete_pdu(osc_pdu);
   coap_delete_pdu(plain_pdu);
   return NULL;
 }
 
 static void
-build_and_send_error_pdu(coap_session_t *session, coap_pdu_t *rcvd,
-                         coap_pdu_code_t code, const char *diagnostic,
-                         uint8_t *echo_data, int encrypt_oscore)
-{
+build_and_send_error_pdu(coap_session_t *session,
+                         coap_pdu_t *rcvd,
+                         coap_pdu_code_t code,
+                         const char *diagnostic,
+                         uint8_t *echo_data,
+                         coap_bin_const_t *kid_context,
+                         int encrypt_oscore) {
   coap_pdu_t *err_pdu;
   coap_bin_const_t token;
   int oscore_encryption = session->oscore_encryption;
   coap_mid_t mid = COAP_INVALID_MID;
   unsigned char buf[4];
 
-  err_pdu = coap_pdu_init(rcvd->type == COAP_MESSAGE_NON ?
-                                        COAP_MESSAGE_NON : COAP_MESSAGE_ACK,
-                          code, rcvd->mid, coap_session_max_pdu_size(session));
+  err_pdu = coap_pdu_init(rcvd->type == COAP_MESSAGE_NON ? COAP_MESSAGE_NON
+                                                         : COAP_MESSAGE_ACK,
+                          code,
+                          rcvd->mid,
+                          coap_session_max_pdu_size(session));
   if (!err_pdu)
     return;
   token = coap_pdu_get_token(rcvd);
   coap_add_token(err_pdu, token.length, token.s);
   if (echo_data) {
     coap_add_option_internal(err_pdu, COAP_OPTION_ECHO, 8, echo_data);
-  }
-  else {
-    coap_add_option_internal(err_pdu, COAP_OPTION_MAXAGE,
-                             coap_encode_var_safe(buf, sizeof(buf), 0), buf);
+  } else if (kid_context == NULL) {
+    coap_add_option_internal(err_pdu,
+                             COAP_OPTION_MAXAGE,
+                             coap_encode_var_safe(buf, sizeof(buf), 0),
+                             buf);
   }
   if (diagnostic)
-    coap_add_data(err_pdu, strlen(diagnostic),
-                  (const uint8_t *)diagnostic);
+    coap_add_data(err_pdu, strlen(diagnostic), (const uint8_t *)diagnostic);
   session->oscore_encryption = encrypt_oscore;
 
-  if (echo_data && encrypt_oscore) {
+  if ((echo_data || kid_context) && encrypt_oscore) {
     coap_pdu_t *osc_pdu;
 
-    osc_pdu = coap_oscore_new_pdu_encrypted(session, err_pdu, NULL, 1);
+    osc_pdu =
+        coap_oscore_new_pdu_encrypted(session, err_pdu, NULL, kid_context, 1);
     if (!osc_pdu)
       goto fail_resp;
     session->oscore_encryption = 0;
     mid = coap_send_internal(session, osc_pdu);
     coap_delete_pdu(err_pdu);
-  }
-  else {
+  } else {
     mid = coap_send_internal(session, err_pdu);
   }
 fail_resp:
@@ -735,12 +788,11 @@ fail_resp:
  * returns NULL when decryption,verification fails
  */
 coap_pdu_t *
-coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
-{
+coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu) {
   coap_pdu_t *decrypt_pdu = NULL;
   coap_pdu_t *plain_pdu = NULL;
-  const uint8_t *osc_value;   /* value of OSCORE option */
-  uint8_t osc_size;           /* size of OSCORE OPTION */
+  const uint8_t *osc_value; /* value of OSCORE option */
+  uint8_t osc_size;         /* size of OSCORE OPTION */
   coap_opt_iterator_t opt_iter;
   coap_opt_t *opt = NULL;
 #ifdef HAVE_OSCORE_GROUP
@@ -757,13 +809,17 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
   uint8_t coap_request = COAP_PDU_IS_REQUEST(pdu);
   coap_bin_const_t pdu_token;
   uint8_t *st_encrypt;
-  size_t encrypt_len;
+  ssize_t encrypt_len;
   size_t tag_len;
   oscore_recipient_ctx_t *rcp_ctx = NULL;
   oscore_association_t *association = NULL;
-  uint8_t external_aad_buffer[100];
+  uint8_t external_aad_buffer[200];
   size_t external_aad_len = 0;
   oscore_sender_ctx_t *snd_ctx = NULL;
+  int req_rfc8613_b_2 = 0;
+#ifdef COAP_CLIENT_SUPPORT
+  int resp_rfc8613_b_2 = 0;
+#endif /* COAP_CLIENT_SUPPORT */
 
   opt = coap_check_option(pdu, COAP_OPTION_OSCORE, &opt_iter);
   assert(opt);
@@ -771,29 +827,42 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
     return NULL;
 
   coap_show_pdu(LOG_DEBUG, pdu);
-  if (session->context->osc_ctx == NULL) {
-    coap_log(LOG_WARNING,"OSCORE: Not enabled\n");
+  if (session->context->p_osc_ctx == NULL) {
+    coap_log(LOG_WARNING, "OSCORE: Not enabled\n");
+    if (!coap_request)
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_NOT_ENABLED,
+                        session);
     return NULL;
   }
 
   if (pdu->data == NULL) {
-    coap_log(LOG_WARNING,"OSCORE: No protected payload\n");
+    coap_log(LOG_WARNING, "OSCORE: No protected payload\n");
+    if (!coap_request)
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_NO_PROTECTED_PAYLOAD,
+                        session);
     return NULL;
   }
 
   osc_size = coap_opt_length(opt);
   osc_value = coap_opt_value(opt);
 
-  cose_encrypt0_init(cose);  /* clear cose memory */
+  cose_encrypt0_init(cose); /* clear cose memory */
 #ifdef HAVE_OSCORE_GROUP
-  cose_sign1_init(sign);  /* clear sign memory */
-#endif /* HAVE_OSCORE_GROUP */
+  cose_sign1_init(sign); /* clear sign memory */
+#endif                   /* HAVE_OSCORE_GROUP */
 
   /* PDU code will be filled in after decryption */
-  decrypt_pdu = coap_pdu_init(pdu->type, 0, pdu->mid,
-                              coap_session_max_pdu_size(session));
-  if (decrypt_pdu == NULL)
+  decrypt_pdu =
+      coap_pdu_init(pdu->type, 0, pdu->mid, coap_session_max_pdu_size(session));
+  if (decrypt_pdu == NULL) {
+    if (!coap_request)
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                        session);
     goto error;
+  }
 
   /* Copy across the Token */
   pdu_token = coap_pdu_get_token(pdu);
@@ -829,37 +898,93 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
     case COAP_OPTION_OSCORE:
       break;
     default:
-      if (!coap_add_option_internal(decrypt_pdu, opt_iter.number,
+      if (!coap_add_option_internal(decrypt_pdu,
+                                    opt_iter.number,
                                     coap_opt_length(opt),
-                                    coap_opt_value(opt)))
+                                    coap_opt_value(opt))) {
+        if (!coap_request)
+          coap_handle_event(session->context,
+                            COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                            session);
         goto error;
+      }
       break;
     }
   }
 
   if (coap_request) {
     uint64_t incoming_seq;
-    coap_bin_const_t empty = { 0,  NULL};
     /*
      * 8.2 Step 2
      * Decompress COSE object
      * Get Recipient Context based on kid and optional kid_context
      */
     if (oscore_decode_option_value(osc_value, osc_size, cose) == 0) {
-      coap_log(LOG_WARNING,"OSCORE: OSCORE Option cannot be decoded.\n");
-      build_and_send_error_pdu(session, pdu, COAP_RESPONSE_CODE(402),
-                               "Failed to decode COSE", NULL, 0);
+      coap_log(LOG_WARNING, "OSCORE: OSCORE Option cannot be decoded.\n");
+      build_and_send_error_pdu(session,
+                               pdu,
+                               COAP_RESPONSE_CODE(402),
+                               "Failed to decode COSE",
+                               NULL,
+                               NULL,
+                               0);
       goto error_no_ack;
     }
     osc_ctx = oscore_find_context(session->context,
-                                  empty,
                                   cose->key_id,
-                                  cose->kid_context,
+                                  &cose->kid_context,
+                                  NULL,
                                   &rcp_ctx);
     if (!osc_ctx) {
-      coap_log(LOG_CRIT,"OSCORE: Security Context not found\n");
-      build_and_send_error_pdu(session, pdu, COAP_RESPONSE_CODE(401),
-                               "Security context not found", NULL, 0);
+      if (cose->kid_context.length > 0) {
+        /* Appendix B.2 protocol chack - Is the recipient key_id known */
+        osc_ctx = oscore_find_context(
+            session->context,
+            cose->key_id,
+            NULL,
+            session->oscore_r2 != 0 ? (uint8_t *)&session->oscore_r2 : NULL,
+            &rcp_ctx);
+        if (osc_ctx && osc_ctx->rfc8613_b_2 &&
+            osc_ctx->mode == OSCORE_MODE_SINGLE) {
+          /* Processing Appendix B.2 protocol */
+          if (session->oscore_r2 != 0) {
+            /* B.2 step 4 */
+            coap_bin_const_t *kc = coap_new_bin_const(cose->kid_context.s,
+                                                      cose->kid_context.length);
+
+            if (kc == NULL)
+              goto error;
+
+            oscore_update_ctx(osc_ctx, kc);
+          } else {
+            osc_ctx = oscore_duplicate_ctx(session->context,
+                                           osc_ctx,
+                                           osc_ctx->sender_context->sender_id,
+                                           &cose->key_id,
+                                           &cose->kid_context);
+            if (osc_ctx) {
+              /*
+               * Complete the Verify (B.2 step 2)
+               * before sending back the response
+               */
+              req_rfc8613_b_2 = 1;
+              rcp_ctx = osc_ctx->recipient_chain;
+            }
+          }
+        } else {
+          osc_ctx = NULL;
+        }
+      }
+    }
+    if (!osc_ctx) {
+      coap_log(LOG_CRIT, "OSCORE: Security Context not found\n");
+      build_and_send_error_pdu(session,
+                               pdu,
+                               COAP_RESPONSE_CODE(401),
+                               "Security context not found",
+                               NULL,
+                               NULL,
+                               0);
       goto error_no_ack;
     }
     /* to be used for encryption of returned response later */
@@ -875,46 +1000,83 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
      */
     if (rcp_ctx->initial_state == 0 &&
         !oscore_validate_sender_seq(rcp_ctx, cose)) {
-      coap_log(LOG_WARNING,"OSCORE: Replayed or old message\n");
-      build_and_send_error_pdu(session, pdu, COAP_RESPONSE_CODE(401),
-                               "Replay detected", NULL, 0);
+      coap_log(LOG_WARNING, "OSCORE: Replayed or old message\n");
+      build_and_send_error_pdu(session,
+                               pdu,
+                               COAP_RESPONSE_CODE(401),
+                               "Replay detected",
+                               NULL,
+                               NULL,
+                               0);
       goto error_no_ack;
     }
 
-    incoming_seq = coap_decode_var_bytes8(cose->partial_iv.s,
-                                          cose->partial_iv.length);
+    incoming_seq =
+        coap_decode_var_bytes8(cose->partial_iv.s, cose->partial_iv.length);
     rcp_ctx->last_seq = incoming_seq;
-  }
-  else /* !coap_request */ {
+  } else /* !coap_request */ {
     /*
      * 8.4 Step 2
      * Decompress COSE object
      * Get Recipient Context based on token
      */
     if (oscore_decode_option_value(osc_value, osc_size, cose) == 0) {
-      coap_log(LOG_WARNING,"OSCORE: OSCORE Option cannot be decoded.\n");
+      coap_log(LOG_WARNING, "OSCORE: OSCORE Option cannot be decoded.\n");
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_DECODE_ERROR,
+                        session);
       goto error;
     }
     association = oscore_find_association(session, &pdu_token);
     if (association) {
       rcp_ctx = association->recipient_ctx;
-      osc_ctx = rcp_ctx->common_ctx;
+      osc_ctx = rcp_ctx->osc_ctx;
       snd_ctx = osc_ctx->sender_context;
-    }
-    else {
-      coap_log(LOG_CRIT,"OSCORE: Security Context association not found\n");
+#ifdef COAP_CLIENT_SUPPORT
+      if (osc_ctx->rfc8613_b_2 && osc_ctx->id_context &&
+          osc_ctx->mode == OSCORE_MODE_SINGLE) {
+        if (osc_ctx->id_context->length != cose->kid_context.length ||
+            memcmp(osc_ctx->id_context->s,
+                   cose->kid_context.s,
+                   cose->kid_context.length) != 0) {
+          /* If Appendix B.2 step 3 is in operation */
+          /* Need to update Security Context with new (R2 || ID1) ID Context */
+          coap_binary_t *kc = coap_new_binary(cose->kid_context.length +
+                                              osc_ctx->id_context->length);
+
+          if (kc == NULL) {
+            coap_handle_event(session->context,
+                              COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                              session);
+            goto error;
+          }
+
+          memcpy(kc->s, cose->kid_context.s, cose->kid_context.length);
+          memcpy(&kc->s[cose->kid_context.length],
+                 osc_ctx->id_context->s,
+                 osc_ctx->id_context->length);
+
+          oscore_update_ctx(osc_ctx, (coap_bin_const_t *)kc);
+          resp_rfc8613_b_2 = 1;
+        }
+      }
+#endif /* COAP_CLIENT_SUPPORT */
+    } else {
+      coap_log(LOG_CRIT, "OSCORE: Security Context association not found\n");
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_NO_SECURITY,
+                        session);
       goto error;
     }
   }
 
 #ifdef HAVE_OSCORE_GROUP
   group_message = osc_ctx->mode != OSCORE_MODE_SINGLE;
-  if ((cose->group_flag == 1 &&
-       osc_ctx->mode != OSCORE_MODE_GROUP) ||
-      (cose->group_flag == 0 &&
-           osc_ctx->mode == OSCORE_MODE_GROUP)) {
+  if ((cose->group_flag == 1 && osc_ctx->mode != OSCORE_MODE_GROUP) ||
+      (cose->group_flag == 0 && osc_ctx->mode == OSCORE_MODE_GROUP)) {
     /* mode cannot be treated according to oscore context */
-    coap_log(LOG_WARNING,"OSCORE: Unsupported mode\n");
+    coap_log(LOG_WARNING, "OSCORE: Unsupported mode\n");
+    coap_handle_event(session->context, COAP_EVENT_OSCORE_NO_SECURITY, session);
     goto error;
   }
 
@@ -951,25 +1113,30 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
      */
 
     /* External AAD */
-    external_aad_len = oscore_prepare_e_aad(osc_ctx, cose, osc_value,
-                                            osc_size,
+    external_aad_len = oscore_prepare_e_aad(
+        osc_ctx,
+        cose,
+        osc_value,
+        osc_size,
 #ifdef HAVE_OSCORE_GROUP
-                                            rcp_ctx->public_key,
-#else /* HAVE_OSCORE_GROUP */
-                                            NULL,
+        rcp_ctx->public_key ? rcp_ctx->public_key->key_value : NULL,
+#else  /* HAVE_OSCORE_GROUP */
+        NULL,
 #endif /* HAVE_OSCORE_GROUP */
-                                            external_aad_buffer,
-                                            sizeof(external_aad_buffer));
+        external_aad_buffer,
+        sizeof(external_aad_buffer));
 
     /* AAD */
     aad.s = aad_buffer;
-    aad.length = oscore_prepare_aad(external_aad_buffer, external_aad_len,
-                                    aad_buffer, sizeof(aad_buffer));
+    aad.length = oscore_prepare_aad(external_aad_buffer,
+                                    external_aad_len,
+                                    aad_buffer,
+                                    sizeof(aad_buffer));
     assert(aad.length < AAD_BUF_LEN);
     cose_encrypt0_set_aad(cose, &aad);
 
     /*
-     *RFC8613 8.2 Step 5.
+     * RFC8613 8.2 Step 5.
      * Compute the AEAD nonce.
      *
      * Requires in COSE object as appropriate
@@ -988,31 +1155,32 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
     if (association) {
       /* Refresh the association */
       coap_delete_bin_const(association->nonce);
-      association->nonce = coap_new_bin_const(cose->nonce.s,
-                                              cose->nonce.length);
+      association->nonce =
+          coap_new_bin_const(cose->nonce.s, cose->nonce.length);
       if (association->nonce == NULL)
         goto error;
       coap_delete_bin_const(association->partial_iv);
-      association->partial_iv = coap_new_bin_const(cose->partial_iv.s,
-                                                   cose->partial_iv.length);
+      association->partial_iv =
+          coap_new_bin_const(cose->partial_iv.s, cose->partial_iv.length);
       if (association->partial_iv == NULL)
         goto error;
       coap_delete_bin_const(association->aad);
-      association->aad = coap_new_bin_const(cose->aad.s,
-                                            cose->aad.length);
+      association->aad = coap_new_bin_const(cose->aad.s, cose->aad.length);
       if (association->aad == NULL)
         goto error;
       association->recipient_ctx = rcp_ctx;
-    }
-    else if (!oscore_new_association(session, &pdu_token,
-                                     rcp_ctx, &cose->aad, &cose->nonce,
-                                     &cose->partial_iv, 0)) {
+    } else if (!oscore_new_association(session,
+                                       &pdu_token,
+                                       rcp_ctx,
+                                       &cose->aad,
+                                       &cose->nonce,
+                                       &cose->partial_iv,
+                                       0)) {
       goto error;
     }
     /* So association is not released when handling decrypt */
     association = NULL;
-  }
-  else /* ! coap_request */ {
+  } else /* ! coap_request */ {
     /* Need to do nonce before AAD because of different partial_iv */
     /*
      * 8.4 Step 4.
@@ -1022,8 +1190,7 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
     if (cose->partial_iv.length == 0) {
       cose_encrypt0_set_partial_iv(cose, association->partial_iv);
       cose_encrypt0_set_nonce(cose, association->nonce);
-    }
-    else {
+    } else {
       /*
        * Requires in COSE object as appropriate
        *   kid (set above)
@@ -1069,23 +1236,27 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
 #ifdef OSCORE_EXTRA_DEBUG
     dump_cose(cose, "!req pre aad");
 #endif /* OSCORE_EXTRA_DEBUG */
-    external_aad_len = oscore_prepare_e_aad(osc_ctx, cose,
+    external_aad_len = oscore_prepare_e_aad(
+        osc_ctx,
+        cose,
 #ifdef HAVE_OSCORE_GROUP
-                                            osc_value,
-                                            osc_size,
-                                            rcp_ctx->public_key,
-#else /* HAVE_OSCORE_GROUP */
-                                            NULL,
-                                            0,
-                                            NULL,
+        osc_value,
+        osc_size,
+        rcp_ctx->public_key ? rcp_ctx->public_key->key_value : NULL,
+#else  /* HAVE_OSCORE_GROUP */
+        NULL,
+        0,
+        NULL,
 #endif /* HAVE_OSCORE_GROUP */
-                                            external_aad_buffer,
-                                            sizeof(external_aad_buffer));
+        external_aad_buffer,
+        sizeof(external_aad_buffer));
 
     /* AAD */
     aad.s = aad_buffer;
-    aad.length = oscore_prepare_aad(external_aad_buffer, external_aad_len,
-                                    aad_buffer, sizeof(aad_buffer));
+    aad.length = oscore_prepare_aad(external_aad_buffer,
+                                    external_aad_len,
+                                    aad_buffer,
+                                    sizeof(aad_buffer));
     assert(aad.length < AAD_BUF_LEN);
     cose_encrypt0_set_aad(cose, &aad);
 #ifdef OSCORE_EXTRA_DEBUG
@@ -1104,14 +1275,18 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
    *   aad   (already set)
    *   ciphertext
    */
-  st_encrypt =  pdu->data;
+  st_encrypt = pdu->data;
   encrypt_len = pdu->used_size - (pdu->data - pdu->token);
 #ifdef HAVE_OSCORE_GROUP
   if (group_message == 1)
-    encrypt_len = encrypt_len - Ed25519_SIGNATURE_LEN;
+    encrypt_len = encrypt_len - 64 /* snd_ctx->public_key->sign_size */;
 #endif /* HAVE_OSCORE_GROUP */
   if (encrypt_len <= 0) {
-    coap_log(LOG_WARNING,"OSCORE: No protected payload\n");
+    coap_log(LOG_WARNING, "OSCORE: No protected payload\n");
+    if (!coap_request)
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_NO_PROTECTED_PAYLOAD,
+                        session);
     goto error;
   }
   cose_encrypt0_set_key(cose, rcp_ctx->recipient_key);
@@ -1120,12 +1295,22 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
   tag_len = cose_tag_len(cose->alg);
   /* Decrypt into plain_pdu, so code (token), options and data are in place */
   plain_pdu = coap_pdu_init(0, 0, 0, encrypt_len /* - tag_len */);
-  if (plain_pdu == NULL)
+  if (plain_pdu == NULL) {
+    if (!coap_request)
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                        session);
     goto error;
+  }
 
   /* need the tag_len on the end for TinyDTLS to do its work - yuk */
-  if (!coap_pdu_resize(plain_pdu, encrypt_len /* - tag_len */))
+  if (!coap_pdu_resize(plain_pdu, encrypt_len /* - tag_len */)) {
+    if (!coap_request)
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                        session);
     goto error;
+  }
 
   /* Account for 1 byte 'code' used as token */
   plain_pdu->token_length = 1;
@@ -1135,60 +1320,156 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
 #ifdef HAVE_OSCORE_GROUP
   if (group_message == 1) {
     /* verify signature */
+    size_t sign_size = 64 /* snd_ctx->public_key->sign_size */;
     uint8_t *st_signature = st_encrypt + encrypt_len;
     uint8_t *sig_buffer = NULL;
-    size_t  sig_len = external_aad_len + encrypt_len + 30;
+    size_t sig_len = external_aad_len + encrypt_len + 30;
     int sign_res;
-    uint8_t keystream[Ed25519_SIGNATURE_LEN];
+    uint8_t *keystream = coap_malloc(sign_size);
 
     sig_buffer = coap_malloc(sig_len);
     oscore_populate_sign(sign, osc_ctx, rcp_ctx->public_key, NULL);
-    sig_len = oscore_prepare_sig_structure(sig_buffer, sig_len,
-                 external_aad_buffer, external_aad_len,
-                 st_encrypt, encrypt_len);
+    sig_len = oscore_prepare_sig_structure(sig_buffer,
+                                           sig_len,
+                                           external_aad_buffer,
+                                           external_aad_len,
+                                           st_encrypt,
+                                           encrypt_len);
     assert(external_aad_len + encrypt_len + 30 > sig_len);
-    cose_sign1_set_signature(sign, st_signature);
+    cose_sign1_set_signature(sign, st_signature, sign_size);
     cose_sign1_set_ciphertext(sign, sig_buffer, sig_len);
 
     /* SIGNATURE = ENC_SIGNATURE XOR KEYSTREAM */
-    oscore_derive_keystream(osc_ctx, cose, coap_request,
+    oscore_derive_keystream(osc_ctx,
+                            cose,
+                            coap_request,
                             rcp_ctx->recipient_id,
-                            osc_ctx->id_context, Ed25519_SIGNATURE_LEN,
-                            keystream, sizeof(keystream));
-    for(int i = 0; i < Ed25519_SIGNATURE_LEN; i++) {
-      st_signature[i] = st_signature[i] ^ (uint8_t)keystream[i];
+                            osc_ctx->id_context,
+                            sign_size,
+                            keystream,
+                            sign_size);
+    for (size_t i = 0; i < sign_size; i++) {
+      st_signature[i] = st_signature[i] ^ keystream[i];
     }
+    coap_free(keystream);
 
     sign_res = cose_sign1_verify(sign);
     coap_free(sig_buffer);
     if (sign_res == 0) {
-      coap_log(LOG_WARNING,
-          "OSCORE: Signature verification Failure \n");
-      build_and_send_error_pdu(session, pdu, COAP_RESPONSE_CODE(400),
-                               "Decryption failed", NULL, 0);
-      goto error_no_ack;
+      coap_log(LOG_WARNING, "OSCORE: Signature verification Failure\n");
+      if (coap_request) {
+        build_and_send_error_pdu(session,
+                                 pdu,
+                                 COAP_RESPONSE_CODE(400),
+                                 "Decryption failed",
+                                 NULL,
+                                 NULL,
+                                 0);
+        goto error_no_ack;
+      } else {
+        coap_handle_event(session->context,
+                          COAP_EVENT_OSCORE_SIGNATURE_FAILURE,
+                          session);
+        goto error;
+      }
     }
   }
 #endif /* HAVE_OSCORE_GROUP */
   dump_cose(cose, "Pre decrypt");
-  pltxt_size = cose_encrypt0_decrypt(cose, plain_pdu->token,
-                                     encrypt_len - tag_len);
+  pltxt_size =
+      cose_encrypt0_decrypt(cose, plain_pdu->token, encrypt_len - tag_len);
   if (pltxt_size <= 0) {
-    coap_log(LOG_WARNING,"OSCORE: Decryption Failure, result code: %d \n",
+    coap_log(LOG_WARNING,
+             "OSCORE: Decryption Failure, result code: %d \n",
              (int)pltxt_size);
     if (coap_request) {
-      build_and_send_error_pdu(session, pdu, COAP_RESPONSE_CODE(400),
-                               "Decryption failed", NULL, 0);
+      build_and_send_error_pdu(session,
+                               pdu,
+                               COAP_RESPONSE_CODE(400),
+                               "Decryption failed",
+                               NULL,
+                               NULL,
+                               0);
       oscore_roll_back_seq(rcp_ctx);
       goto error_no_ack;
+    } else {
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_DECRYPTION_FAILURE,
+                        session);
     }
     goto error;
   }
 
-  assert((size_t)pltxt_size < pdu->alloc_size + pdu->max_hdr_size );
+  assert((size_t)pltxt_size < pdu->alloc_size + pdu->max_hdr_size);
+
+  /* Appendix B.2 Trap */
+  if (req_rfc8613_b_2) {
+    /* Need to update Security Context with new (R2 || ID1) ID Context */
+    coap_binary_t *kc =
+        coap_new_binary(sizeof(session->oscore_r2) + cose->kid_context.length);
+    coap_bin_const_t oscore_r2;
+
+    if (kc == NULL) {
+      if (!coap_request)
+        coap_handle_event(session->context,
+                          COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                          session);
+      goto error;
+    }
+
+    coap_prng(&session->oscore_r2, sizeof(session->oscore_r2));
+    memcpy(kc->s, &session->oscore_r2, sizeof(session->oscore_r2));
+    memcpy(&kc->s[sizeof(session->oscore_r2)],
+           cose->kid_context.s,
+           cose->kid_context.length);
+
+    oscore_update_ctx(osc_ctx, (coap_bin_const_t *)kc);
+
+    oscore_r2.length = sizeof(session->oscore_r2);
+    oscore_r2.s = (const uint8_t *)&session->oscore_r2;
+    build_and_send_error_pdu(session,
+                             pdu,
+                             COAP_RESPONSE_CODE(401),
+                             NULL,
+                             NULL,
+                             &oscore_r2,
+                             1);
+    goto error_no_ack;
+  }
+#ifdef COAP_CLIENT_SUPPORT
+  if (resp_rfc8613_b_2 && plain_pdu->token[0] == COAP_RESPONSE_CODE(401)) {
+    /*
+     * Need to update Security Context with new (R2 || R3) ID Context
+     * and retransmit the request
+     */
+    coap_binary_t *kc = coap_new_binary(cose->kid_context.length + 8);
+
+    if (kc == NULL) {
+      if (!coap_request)
+        coap_handle_event(session->context,
+                          COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                          session);
+      goto error;
+    }
+    memcpy(kc->s, cose->kid_context.s, cose->kid_context.length);
+    coap_prng(&kc->s[cose->kid_context.length], 8);
+
+    oscore_update_ctx(osc_ctx, (coap_bin_const_t *)kc);
+
+    coap_cancel_all_messages(session->context,
+                             session,
+                             pdu->token,
+                             pdu->token_length);
+    if (session->con_active)
+      session->con_active--;
+    if (coap_retransmit_oscore_pdu(session, pdu) == COAP_INVALID_MID)
+      goto error;
+    goto error_no_ack;
+  }
+#endif /* COAP_CLIENT_SUPPORT */
 
   /* Appendix B.1.2 Trap */
-  if (coap_request) {
+  if (coap_request && osc_ctx->rfc8613_b_1_2) {
     if (rcp_ctx->initial_state == 1) {
       opt = coap_check_option(plain_pdu, COAP_OPTION_ECHO, &opt_iter);
       if (opt) {
@@ -1196,20 +1477,28 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
         if (coap_opt_length(opt) == 8 &&
             memcmp(coap_opt_value(opt), rcp_ctx->echo_value, 8) == 0) {
           if (!oscore_validate_sender_seq(rcp_ctx, cose)) {
-            coap_log(LOG_WARNING,"OSCORE: Replayed or old message\n");
-            build_and_send_error_pdu(session, pdu, COAP_RESPONSE_CODE(401),
-                                     "Replay detected", NULL, 0);
+            coap_log(LOG_WARNING, "OSCORE: Replayed or old message\n");
+            build_and_send_error_pdu(session,
+                                     pdu,
+                                     COAP_RESPONSE_CODE(401),
+                                     "Replay detected",
+                                     NULL,
+                                     NULL,
+                                     0);
             goto error_no_ack;
           }
-        }
-        else
+        } else
           goto error;
-      }
-      else {
+      } else {
         /* RFC 8163 Appendix B.1.2 */
         coap_prng(rcp_ctx->echo_value, sizeof(rcp_ctx->echo_value));
-        build_and_send_error_pdu(session, pdu, COAP_RESPONSE_CODE(401),
-                                 NULL, rcp_ctx->echo_value, 1);
+        build_and_send_error_pdu(session,
+                                 pdu,
+                                 COAP_RESPONSE_CODE(401),
+                                 NULL,
+                                 rcp_ctx->echo_value,
+                                 NULL,
+                                 1);
         goto error_no_ack;
       }
     }
@@ -1238,12 +1527,16 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
         bias = cose->partial_iv.length > 3 ? cose->partial_iv.length - 3 : 0;
         len = cose->partial_iv.length > 3 ? 3 : cose->partial_iv.length;
         /* Make Observe option reflect last 3 bytes of partial_iv */
-        if (!coap_add_option_internal(decrypt_pdu, opt_iter.number,
-                                      len,
-                                      cose->partial_iv.s ?
-                                        &cose->partial_iv.s[bias] :
-                                        NULL))
+        if (!coap_add_option_internal(
+                decrypt_pdu,
+                opt_iter.number,
+                len,
+                cose->partial_iv.s ? &cose->partial_iv.s[bias] : NULL)) {
+          coap_handle_event(session->context,
+                            COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                            session);
           goto error;
+        }
         break;
       }
       association = oscore_find_association(session, &pdu_token);
@@ -1253,10 +1546,16 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
       }
       /* Fall Through */
     default:
-      if (!coap_insert_option(decrypt_pdu, opt_iter.number,
+      if (!coap_insert_option(decrypt_pdu,
+                              opt_iter.number,
                               coap_opt_length(opt),
-                              coap_opt_value(opt)))
+                              coap_opt_value(opt))) {
+        if (!coap_request)
+          coap_handle_event(session->context,
+                            COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                            session);
         goto error;
+      }
       break;
     }
   }
@@ -1264,15 +1563,26 @@ coap_oscore_decrypt_pdu(coap_session_t *session, coap_pdu_t *pdu)
   if (opt_iter.length > 0 && opt_iter.next_option &&
       opt_iter.next_option[0] == COAP_PAYLOAD_START) {
     plain_pdu->data = &opt_iter.next_option[1];
-    if (!coap_add_data(decrypt_pdu, plain_pdu->used_size -
-                       (plain_pdu->data - plain_pdu->token), plain_pdu->data))
+    if (!coap_add_data(decrypt_pdu,
+                       plain_pdu->used_size -
+                           (plain_pdu->data - plain_pdu->token),
+                       plain_pdu->data)) {
+      if (!coap_request)
+        coap_handle_event(session->context,
+                          COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                          session);
       goto error;
+    }
   }
   coap_delete_pdu(plain_pdu);
   plain_pdu = NULL;
 
   /* Make sure headers are correctly set up */
   if (!coap_pdu_encode_header(decrypt_pdu, session->proto)) {
+    if (!coap_request)
+      coap_handle_event(session->context,
+                        COAP_EVENT_OSCORE_INTERNAL_ERROR,
+                        session);
     goto error;
   }
   if (association && association->is_observe == 0)
@@ -1291,36 +1601,48 @@ error_no_ack:
 }
 
 typedef enum {
-  COAP_ENC_ASCII    = 0x01,
-  COAP_ENC_HEX      = 0x02,
+  COAP_ENC_ASCII = 0x001,
+  COAP_ENC_HEX = 0x002,
 #if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
-  COAP_ENC_FILE_PEM = 0x04,
+  COAP_ENC_PUB_RAW = 0x004,
+  COAP_ENC_PUB_ASN1 = 0x008,
+  COAP_ENC_PUB_FILE_PEM = 0x010,
+  COAP_ENC_PRI_RAW = 0x020,
+  COAP_ENC_PRI_ASN1 = 0x040,
+  COAP_ENC_PRI_FILE_PEM = 0x080,
 #endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
-  COAP_ENC_INTEGER  = 0x08,
-  COAP_ENC_TEXT     = 0x10,
-  COAP_ENC_BOOL     = 0x20,
+  COAP_ENC_INTEGER = 0x100,
+  COAP_ENC_TEXT = 0x200,
+  COAP_ENC_BOOL = 0x400,
   COAP_ENC_LAST
 } coap_oscore_coding_t;
 
 static struct coap_oscore_encoding_t {
   const char *name;
   coap_oscore_coding_t encoding;
-} oscore_encoding[] = {
-  { "ascii", COAP_ENC_ASCII },
-  { "hex", COAP_ENC_HEX },
-#ifdef HAVE_OSCORE_GROUP
-  { "file_pem", COAP_ENC_FILE_PEM },
-#endif /* HAVE_OSCORE_GROUP */
-  { "integer", COAP_ENC_INTEGER },
-  { "text", COAP_ENC_TEXT },
-  { "bool", COAP_ENC_BOOL }
-};
+} oscore_encoding[] = {{"ascii", COAP_ENC_ASCII},
+                       {"hex", COAP_ENC_HEX},
+#if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
+                       {"pub_raw", COAP_ENC_PUB_RAW},
+                       {"pub_asn1", COAP_ENC_PUB_ASN1},
+                       {"pub_file_pem", COAP_ENC_PUB_FILE_PEM},
+                       {"pri_raw", COAP_ENC_PRI_RAW},
+                       {"pri_asn1", COAP_ENC_PRI_ASN1},
+                       {"pri_file_pem", COAP_ENC_PRI_FILE_PEM},
+#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
+                       {"integer", COAP_ENC_INTEGER},
+                       {"text", COAP_ENC_TEXT},
+                       {"bool", COAP_ENC_BOOL},
+                       {NULL, COAP_ENC_LAST}};
 
 typedef struct {
   coap_oscore_coding_t encoding;
+  const char *encoding_name;
   union {
     int value_int;
     coap_bin_const_t *value_bin;
+    coap_crypto_pub_key_t *value_pub;
+    coap_crypto_pri_key_t *value_pri;
     coap_str_const_t value_str;
   } u;
 } oscore_value_t;
@@ -1336,6 +1658,31 @@ hex2char(char c) {
     return c - '0';
 }
 
+/* Parse the hex into binary */
+static coap_bin_const_t *
+parse_hex_bin(const char *begin, const char *end) {
+  coap_binary_t *binary = NULL;
+  size_t i;
+
+  if ((end - begin) % 2 != 0)
+    goto bad_entry;
+  binary = coap_new_binary((end - begin) / 2);
+  if (binary == NULL)
+    goto bad_entry;
+  for (i = 0; (i < (size_t)(end - begin)) && isxdigit(begin[i]) &&
+              isxdigit(begin[i + 1]);
+       i += 2) {
+    binary->s[i / 2] = (hex2char(begin[i]) << 4) + hex2char(begin[i + 1]);
+  }
+  if (i != (size_t)(end - begin))
+    goto bad_entry;
+  return (coap_bin_const_t *)binary;
+
+bad_entry:
+  coap_delete_binary(binary);
+  return NULL;
+}
+
 /*
  * Break up each OSCORE Configuration line entry into the 3 parts which
  * are comma separated
@@ -1343,17 +1690,23 @@ hex2char(char c) {
  * keyword,encoding,value
  */
 static int
-get_split_entry(const char **start, size_t size, coap_str_const_t *keyword,
-                oscore_value_t *value)
-{
+get_split_entry(const char **start,
+                size_t size,
+                coap_str_const_t *keyword,
+                oscore_value_t *value,
+                coap_oscore_conf_t *oscore_conf) {
   const char *begin = *start;
   const char *end;
   const char *split;
   size_t i;
 #if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
-  size_t suffix_len;
+  coap_bin_const_t *binary = NULL;
   coap_string_t *file_name;
-#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC*/
+  coap_crypto_pub_key_t *pub_key;
+  coap_crypto_pri_key_t *pri_key;
+#else  /* !HAVE_OSCORE_GROUP && !HAVE_OSCORE_EDHOC */
+  (void)oscore_conf;
+#endif /* !HAVE_OSCORE_GROUP && !HAVE_OSCORE_EDHOC */
 
 retry:
   end = memchr(begin, '\n', size);
@@ -1388,13 +1741,14 @@ retry:
   if (split == NULL)
     goto bad_entry;
 
-  for (i = 0; i < COAP_ENC_LAST; i++) {
-    if (memcmp(begin, oscore_encoding[i].name, split-begin) == 0) {
+  for (i = 0; oscore_encoding[i].name; i++) {
+    if (memcmp(begin, oscore_encoding[i].name, split - begin) == 0) {
       value->encoding = oscore_encoding[i].encoding;
+      value->encoding_name = oscore_encoding[i].name;
       break;
     }
   }
-  if (i == COAP_ENC_LAST)
+  if (oscore_encoding[i].name == NULL)
     goto bad_entry;
 
   begin = split + 1;
@@ -1410,61 +1764,88 @@ retry:
   }
   switch (value->encoding) {
   case COAP_ENC_ASCII:
-    value->u.value_bin = coap_new_bin_const((const uint8_t *)begin,
-                                            end - begin);
+    value->u.value_bin =
+        coap_new_bin_const((const uint8_t *)begin, end - begin);
     break;
   case COAP_ENC_HEX:
     /* Parse the hex into binary */
-    if ((end - begin) % 2 != 0)
+    value->u.value_bin = parse_hex_bin(begin, end);
+    if (value->u.value_bin == NULL)
       goto bad_entry;
-    coap_binary_t * hex = coap_new_binary((end - begin) / 2);
-    for (i = 0; (i < (size_t)(end - begin)) && isxdigit(begin[i]) &&
-                isxdigit(begin[i+1]); i+=2) {
-      hex->s[i/2] = (hex2char(begin[i]) << 4) + hex2char(begin[i+1]);
-    }
-    if (i != (size_t)(end - begin))
-      goto bad_entry;
-    value->u.value_bin = (coap_bin_const_t *)hex;
     break;
 #if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
-  case COAP_ENC_FILE_PEM:
+  case COAP_ENC_PUB_FILE_PEM:
     /* Need NULL terminated file name */
     file_name = coap_new_string(end - begin);
     if (file_name == NULL)
       goto bad_file;
     memcpy(file_name->s, begin, end - begin);
-
-    coap_binary_t *key = coap_new_binary(32);
-    suffix_len = sizeof("_private_key") - 1;
-    if (keyword->length > suffix_len) {
-      if (memcmp("_private_key", &keyword->s[keyword->length - suffix_len],
-                 suffix_len) == 0) {
-         if (coap_crypto_read_pem_private_key((const char *)file_name->s,
-                                              key->s, &key->length) == 0) {
-           coap_delete_binary(key);
-           goto bad_file;
-         }
-         value->u.value_bin = (coap_bin_const_t *)key;
-         coap_delete_string(file_name);
-         break;
-      }
+    if (coap_crypto_read_pem_public_key((const char *)file_name->s, &pub_key) ==
+        0) {
+      goto bad_file;
     }
-    suffix_len = sizeof("_public_key") - 1;
-    if (keyword->length > suffix_len) {
-      if (memcmp("_public_key", &keyword->s[keyword->length - suffix_len],
-                 suffix_len) == 0) {
-         if (coap_crypto_read_pem_public_key((const char *)file_name->s,
-                                              key->s, &key->length) == 0) {
-           coap_delete_binary(key);
-           goto bad_file;
-         }
-         value->u.value_bin = (coap_bin_const_t *)key;
-         coap_delete_string(file_name);
-         break;
-      }
-    }
-    goto bad_file;
+    value->u.value_pub = pub_key;
+    coap_delete_string(file_name);
     break;
+  case COAP_ENC_PRI_FILE_PEM:
+    /* Need NULL terminated file name */
+    file_name = coap_new_string(end - begin);
+    if (file_name == NULL)
+      goto bad_file;
+    memcpy(file_name->s, begin, end - begin);
+    if (coap_crypto_read_pem_private_key((const char *)file_name->s,
+                                         &pri_key) == 0) {
+      goto bad_file;
+    }
+    value->u.value_pri = pri_key;
+    coap_delete_string(file_name);
+    break;
+#ifdef HAVE_OSCORE_GROUP
+  case COAP_ENC_PUB_ASN1:
+    /* Parse the hex into binary */
+    binary = parse_hex_bin(begin, end);
+    if (binary == NULL)
+      goto bad_entry;
+    if (coap_crypto_read_asn1_public_key(binary, &pub_key) == 0) {
+      goto bad_entry;
+    }
+    value->u.value_pub = pub_key;
+    break;
+  case COAP_ENC_PRI_ASN1:
+    /* Parse the hex into binary */
+    binary = parse_hex_bin(begin, end);
+    if (binary == NULL)
+      goto bad_entry;
+    if (coap_crypto_read_asn1_private_key(binary, &pri_key) == 0) {
+      goto bad_entry;
+    }
+    value->u.value_pri = pri_key;
+    break;
+  case COAP_ENC_PUB_RAW:
+    /* Parse the hex into binary */
+    binary = parse_hex_bin(begin, end);
+    if (binary == NULL)
+      goto bad_entry;
+    if (coap_crypto_read_raw_public_key(oscore_conf->sign_curve,
+                                        binary,
+                                        &pub_key) == 0) {
+      goto bad_entry;
+    }
+    value->u.value_pub = pub_key;
+    break;
+  case COAP_ENC_PRI_RAW:
+    /* Parse the hex into binary */
+    binary = parse_hex_bin(begin, end);
+    if (binary == NULL)
+      goto bad_entry;
+    if (coap_crypto_read_raw_private_key(oscore_conf->sign_curve,
+                                         binary,
+                                         &pri_key) == 0) {
+      goto bad_entry;
+    }
+    value->u.value_pri = pri_key;
+    break;
+#endif /* HAVE_OSCORE_GROUP */
 #endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC*/
   case COAP_ENC_INTEGER:
     value->u.value_int = atoi(begin);
@@ -1490,21 +1871,24 @@ retry:
 bad_entry:
   coap_log(LOG_WARNING,
            "oscore_conf: Unrecognized configuration entry '%.*s'\n",
-           (int)(end - begin - 1), begin);
+           (int)(end - begin),
+           begin);
   return 0;
 
 #if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
 bad_file:
   coap_log(LOG_WARNING,
            "oscore_conf: Bad configuration file_pem entry '%.*s'\n",
-           (int)file_name->length, file_name->s);
+           (int)file_name->length,
+           file_name->s);
   coap_delete_string(file_name);
   return 0;
 #endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC*/
 }
 
 #undef CONFIG_ENTRY
-#define CONFIG_ENTRY(n,e,t) { #n, e, offsetof(coap_oscore_conf_t, n), t }
+#define CONFIG_ENTRY(n, e, t)                                                  \
+  { #n, e, offsetof(coap_oscore_conf_t, n), t }
 
 typedef struct oscore_text_mapping_t {
   const char *text;
@@ -1513,35 +1897,22 @@ typedef struct oscore_text_mapping_t {
 
 /* Naming as per https://www.iana.org/assignments/cose/cose.xhtml#algorithms */
 static oscore_text_mapping_t text_aead_alg[] = {
-  { "AES-CCM-16-64-128", COSE_Algorithm_AES_CCM_16_64_128 },
-  { "AES-CCM-16-64-256", COSE_Algorithm_AES_CCM_16_64_256 },
-  { NULL, 0 }
-};
+    {"AES-CCM-16-64-128", COSE_Algorithm_AES_CCM_16_64_128},
+    {"AES-CCM-16-64-256", COSE_Algorithm_AES_CCM_16_64_256},
+    {NULL, 0}};
 
 static oscore_text_mapping_t text_hkdf_alg[] = {
-  { "HMAC 256/256", COSE_Algorithm_HMAC256_256 },
-  { NULL, 0 }
-};
-
-static oscore_text_mapping_t text_mode[] = {
-  { "single", OSCORE_MODE_SINGLE },
-#ifdef HAVE_OSCORE_GROUP
-  { "group", OSCORE_MODE_GROUP },
-  { "pairwise", OSCORE_MODE_PAIRWISE },
-#endif /* HAVE_OSCORE_GROUP */
-  { NULL, 0 }
-};
+    {"HMAC 256/256", COSE_Algorithm_HMAC256_256}, {NULL, 0}};
 
 #ifdef HAVE_OSCORE_GROUP
-static oscore_text_mapping_t text_sign_alg[] = {
-  { "EdDSA", COSE_Algorithm_EdDSA },
-  { NULL, 0 }
-};
+static oscore_text_mapping_t text_sign_alg[] = {{"EdDSA", COSE_Algorithm_EdDSA},
+                                                {NULL, 0}};
+
+static oscore_text_mapping_t text_sign_curve[] = {
+    {"Ed25519", COSE_curve_Ed25519}, {NULL, 0}};
 
 static oscore_text_mapping_t text_ecdh_alg[] = {
-//  { "ECDH-SS + HKDF-256", COSE_Algorithm_ECDH_SS_HKDF_256 },
-  { NULL, 0 }
-};
+    {"ECDH-SS + HKDF-256", COSE_Algorithm_ECDH_SS_HKDF_256}, {NULL, 0}};
 #endif /* HAVE_OSCORE_GROUP */
 
 static struct oscore_config_t {
@@ -1550,45 +1921,48 @@ static struct oscore_config_t {
   size_t offset;
   oscore_text_mapping_t *text_mapping;
 } oscore_config[] = {
-  CONFIG_ENTRY(master_secret, COAP_ENC_HEX | COAP_ENC_ASCII,    NULL),
-  CONFIG_ENTRY(master_salt,   COAP_ENC_HEX | COAP_ENC_ASCII,    NULL),
-  CONFIG_ENTRY(sender_id,     COAP_ENC_HEX | COAP_ENC_ASCII,    NULL),
-  CONFIG_ENTRY(id_context,    COAP_ENC_HEX | COAP_ENC_ASCII,    NULL),
-  CONFIG_ENTRY(recipient_id,  COAP_ENC_HEX | COAP_ENC_ASCII,    NULL),
-  CONFIG_ENTRY(replay_window, COAP_ENC_INTEGER, NULL),
-  CONFIG_ENTRY(ssn_freq,      COAP_ENC_INTEGER, NULL),
-  CONFIG_ENTRY(aead_alg,      COAP_ENC_INTEGER | COAP_ENC_TEXT, text_aead_alg),
-  CONFIG_ENTRY(hkdf_alg,      COAP_ENC_INTEGER | COAP_ENC_TEXT, text_hkdf_alg),
-  CONFIG_ENTRY(mode,          COAP_ENC_TEXT,    text_mode),
-  CONFIG_ENTRY(rfc8613_b_2,   COAP_ENC_BOOL,    NULL),
+    CONFIG_ENTRY(master_secret, COAP_ENC_HEX | COAP_ENC_ASCII, NULL),
+    CONFIG_ENTRY(master_salt, COAP_ENC_HEX | COAP_ENC_ASCII, NULL),
+    CONFIG_ENTRY(sender_id, COAP_ENC_HEX | COAP_ENC_ASCII, NULL),
+    CONFIG_ENTRY(id_context, COAP_ENC_HEX | COAP_ENC_ASCII, NULL),
+    CONFIG_ENTRY(recipient_id, COAP_ENC_HEX | COAP_ENC_ASCII, NULL),
+    CONFIG_ENTRY(replay_window, COAP_ENC_INTEGER, NULL),
+    CONFIG_ENTRY(ssn_freq, COAP_ENC_INTEGER, NULL),
+    CONFIG_ENTRY(aead_alg, COAP_ENC_INTEGER | COAP_ENC_TEXT, text_aead_alg),
+    CONFIG_ENTRY(hkdf_alg, COAP_ENC_INTEGER | COAP_ENC_TEXT, text_hkdf_alg),
+    CONFIG_ENTRY(rfc8613_b_1_2, COAP_ENC_BOOL, NULL),
+    CONFIG_ENTRY(rfc8613_b_2, COAP_ENC_BOOL, NULL),
 #ifdef HAVE_OSCORE_GROUP
-  /* As per draft-ietf-ace-oscore-gm-admin 3.1.1 to provide group support */
-  CONFIG_ENTRY(hkdf,          COAP_ENC_INTEGER | COAP_ENC_TEXT, text_hkdf_alg),
-/*CONFIG_ENTRY(pub_key_enc,   COAP_ENC_INTEGER, NULL), */
-  CONFIG_ENTRY(group_mode,    COAP_ENC_BOOL,    NULL),
-  CONFIG_ENTRY(sign_enc_alg,  COAP_ENC_INTEGER | COAP_ENC_TEXT, text_aead_alg),
-  CONFIG_ENTRY(sign_alg,      COAP_ENC_INTEGER | COAP_ENC_TEXT, text_sign_alg),
-/*CONFIG_ENTRY(sign_params,   COAP_ENC_INTEGER | COAP_ENC_TEXT, text_sign_alg),*/
-  CONFIG_ENTRY(pairwise_mode, COAP_ENC_BOOL,    NULL),
-  CONFIG_ENTRY(alg,           COAP_ENC_INTEGER | COAP_ENC_TEXT, text_aead_alg),
-  CONFIG_ENTRY(ecdh_alg,      COAP_ENC_INTEGER | COAP_ENC_TEXT, text_ecdh_alg),
-  CONFIG_ENTRY(gm_public_key,      COAP_ENC_HEX | COAP_ENC_FILE_PEM, NULL),
-  CONFIG_ENTRY(recipient_public_key,  COAP_ENC_HEX | COAP_ENC_FILE_PEM, NULL),
+    /* As per draft-ietf-ace-oscore-gm-admin 3.1.1 to provide group support */
+    /*CONFIG_ENTRY(pub_key_enc,   COAP_ENC_INTEGER, NULL), */
+    CONFIG_ENTRY(group_mode, COAP_ENC_BOOL, NULL),
+    CONFIG_ENTRY(sign_enc_alg, COAP_ENC_INTEGER | COAP_ENC_TEXT, text_aead_alg),
+    CONFIG_ENTRY(sign_alg, COAP_ENC_INTEGER | COAP_ENC_TEXT, text_sign_alg),
+    CONFIG_ENTRY(sign_curve, COAP_ENC_INTEGER | COAP_ENC_TEXT, text_sign_curve),
+    /*CONFIG_ENTRY(sign_params,   COAP_ENC_INTEGER | COAP_ENC_TEXT,
+       text_sign_alg),*/
+    CONFIG_ENTRY(pairwise_mode, COAP_ENC_BOOL, NULL),
+    CONFIG_ENTRY(ecdh_alg, COAP_ENC_INTEGER | COAP_ENC_TEXT, text_ecdh_alg),
+    CONFIG_ENTRY(
+        gm_public_key, COAP_ENC_PUB_ASN1 | COAP_ENC_PUB_FILE_PEM, NULL),
+    CONFIG_ENTRY(
+        recipient_public_key, COAP_ENC_PUB_ASN1 | COAP_ENC_PUB_FILE_PEM, NULL),
+    CONFIG_ENTRY(
+        sender_public_key, COAP_ENC_PUB_ASN1 | COAP_ENC_PUB_FILE_PEM, NULL),
+    CONFIG_ENTRY(
+        sender_private_key, COAP_ENC_PRI_ASN1 | COAP_ENC_PRI_FILE_PEM, NULL),
 #endif /* HAVE_OSCORE_GROUP */
 
-#if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
-  CONFIG_ENTRY(sender_public_key,  COAP_ENC_HEX | COAP_ENC_FILE_PEM, NULL),
-  CONFIG_ENTRY(sender_private_key, COAP_ENC_HEX | COAP_ENC_FILE_PEM, NULL),
-#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
-
 #ifdef HAVE_OSCORE_EDHOC
-  CONFIG_ENTRY(use_edhoc,     COAP_ENC_BOOL, NULL),
-  CONFIG_ENTRY(edhoc_method,  COAP_ENC_INTEGER, NULL),
-  CONFIG_ENTRY(edhoc_suite,   COAP_ENC_INTEGER, NULL),
-  CONFIG_ENTRY(edhoc_alg,     COAP_ENC_INTEGER | COAP_ENC_TEXT, text_aead_alg),
-  CONFIG_ENTRY(test_public_key,  COAP_ENC_HEX | COAP_ENC_FILE_PEM, NULL),
-  CONFIG_ENTRY(test_private_key, COAP_ENC_HEX | COAP_ENC_FILE_PEM, NULL),
-  CONFIG_ENTRY(edhoc_dh_subject, COAP_ENC_ASCII,    NULL),
+    CONFIG_ENTRY(use_edhoc, COAP_ENC_BOOL, NULL),
+    CONFIG_ENTRY(edhoc_method, COAP_ENC_INTEGER, NULL),
+    CONFIG_ENTRY(edhoc_suite, COAP_ENC_INTEGER, NULL),
+    CONFIG_ENTRY(edhoc_alg, COAP_ENC_INTEGER | COAP_ENC_TEXT, text_aead_alg),
+    CONFIG_ENTRY(edhoc_dh_subject, COAP_ENC_ASCII, NULL),
+    CONFIG_ENTRY(test_s_public_key, COAP_ENC_HEX, NULL),
+    CONFIG_ENTRY(test_s_private_key, COAP_ENC_HEX, NULL),
+    CONFIG_ENTRY(test_r_public_key, COAP_ENC_HEX, NULL),
+    CONFIG_ENTRY(test_r_private_key, COAP_ENC_HEX, NULL),
 #endif /* HAVE_OSCORE_EDHOC */
 };
 
@@ -1608,20 +1982,20 @@ coap_delete_oscore_conf(coap_oscore_conf_t *oscore_conf) {
   }
   coap_free(oscore_conf->recipient_id);
 #ifdef HAVE_OSCORE_GROUP
-  coap_delete_bin_const(oscore_conf->gm_public_key);
+  coap_crypto_delete_public_key(oscore_conf->gm_public_key);
   for (i = 0; i < oscore_conf->recipient_public_key_count; i++) {
-    coap_delete_bin_const(oscore_conf->recipient_public_key[i]);
+    coap_crypto_delete_public_key(oscore_conf->recipient_public_key[i]);
   }
   coap_free(oscore_conf->recipient_public_key);
+  coap_crypto_delete_public_key(oscore_conf->sender_public_key);
+  coap_crypto_delete_private_key(oscore_conf->sender_private_key);
 #endif /* HAVE_OSCORE_GROUP */
-#if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
-  coap_delete_bin_const(oscore_conf->sender_public_key);
-  coap_delete_bin_const(oscore_conf->sender_private_key);
-#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
 #if HAVE_OSCORE_EDHOC
   coap_free(oscore_conf->edhoc_suite);
-  coap_delete_bin_const(oscore_conf->test_public_key);
-  coap_delete_bin_const(oscore_conf->test_private_key);
+  coap_delete_bin_const(oscore_conf->test_s_public_key);
+  coap_delete_bin_const(oscore_conf->test_s_private_key);
+  coap_delete_bin_const(oscore_conf->test_r_public_key);
+  coap_delete_bin_const(oscore_conf->test_r_private_key);
   coap_delete_bin_const(oscore_conf->edhoc_dh_subject);
 #endif /* HAVE_OSCORE_EDHOC */
 
@@ -1630,8 +2004,7 @@ coap_delete_oscore_conf(coap_oscore_conf_t *oscore_conf) {
 }
 
 static coap_oscore_conf_t *
-coap_parse_oscore_conf_mem(coap_str_const_t conf_mem)
-{
+coap_parse_oscore_conf_mem(coap_str_const_t conf_mem) {
   const char *start = (const char *)conf_mem.s;
   const char *end = start + conf_mem.length;
   coap_str_const_t keyword;
@@ -1649,18 +2022,20 @@ coap_parse_oscore_conf_mem(coap_str_const_t conf_mem)
   oscore_conf->ssn_freq = 1;
   oscore_conf->aead_alg = COSE_Algorithm_AES_CCM_16_64_128;
   oscore_conf->hkdf_alg = COSE_Algorithm_HMAC256_256;
-  oscore_conf->mode = OSCORE_MODE_SINGLE;
+  oscore_conf->rfc8613_b_1_2 = 1;
+  oscore_conf->rfc8613_b_2 = 0;
 #ifdef HAVE_OSCORE_GROUP
   oscore_conf->sign_alg = COSE_Algorithm_EdDSA;
+  oscore_conf->sign_curve = COSE_curve_Ed25519;
   oscore_conf->sign_enc_alg = COSE_Algorithm_AES_CCM_16_64_128;
 #endif /* HAVE_OSCORE_GROUP */
 
   while (end > start &&
-         get_split_entry(&start, end - start, &keyword, &value)) {
+         get_split_entry(&start, end - start, &keyword, &value, oscore_conf)) {
     size_t i;
     size_t j;
 
-    for (i = 0; i < sizeof(oscore_config)/sizeof(oscore_config[0]); i++) {
+    for (i = 0; i < sizeof(oscore_config) / sizeof(oscore_config[0]); i++) {
       if (memcmp(oscore_config[i].keyword, keyword.s, keyword.length) == 0 &&
           value.encoding & oscore_config[i].encoding) {
         if (memcmp(keyword.s, "recipient_id", keyword.length) == 0) {
@@ -1671,70 +2046,110 @@ coap_parse_oscore_conf_mem(coap_str_const_t conf_mem)
           }
           /* Special case as there are potentially multiple entries */
           oscore_conf->recipient_id =
-            coap_realloc_type(COAP_STRING, oscore_conf->recipient_id,
-                                   sizeof(oscore_conf->recipient_id[0]) *
-                                      (oscore_conf->recipient_id_count + 1));
+              coap_realloc_type(COAP_STRING,
+                                oscore_conf->recipient_id,
+                                sizeof(oscore_conf->recipient_id[0]) *
+                                    (oscore_conf->recipient_id_count + 1));
           if (oscore_conf->recipient_id == NULL) {
             goto error_free_value_bin;
           }
           oscore_conf->recipient_id[oscore_conf->recipient_id_count++] =
-                                                    value.u.value_bin;
-        }
-        else if (memcmp(keyword.s, "recipient_public_key",
-                        keyword.length) == 0) {
+              value.u.value_bin;
+#ifdef HAVE_OSCORE_GROUP
+        } else if (memcmp(keyword.s, "recipient_public_key", keyword.length) ==
+                   0) {
           /* Special case as there are potentially multiple entries */
-          oscore_conf->recipient_public_key =
-            coap_realloc_type(COAP_STRING, oscore_conf->recipient_public_key,
-                              sizeof(oscore_conf->recipient_public_key[0]) *
-                                (oscore_conf->recipient_public_key_count + 1));
+          oscore_conf->recipient_public_key = coap_realloc_type(
+              COAP_STRING,
+              oscore_conf->recipient_public_key,
+              sizeof(oscore_conf->recipient_public_key[0]) *
+                  (oscore_conf->recipient_public_key_count + 1));
           if (oscore_conf->recipient_public_key == NULL)
             goto error_free_value_bin;
-          oscore_conf->recipient_public_key[oscore_conf->recipient_public_key_count++] =
-                                                    value.u.value_bin;
-        }
-        else if (memcmp(keyword.s, "edhoc_suite",
-                        keyword.length) == 0) {
+          oscore_conf->recipient_public_key
+              [oscore_conf->recipient_public_key_count++] = value.u.value_pub;
+#endif /* HAVE_OSCORE_GROUP */
+#ifdef HAVE_OSCORE_EDHOC
+        } else if (memcmp(keyword.s, "edhoc_suite", keyword.length) == 0) {
           /* Special case as there are potentially multiple entries */
           oscore_conf->edhoc_suite =
-            coap_realloc_type(COAP_STRING, oscore_conf->edhoc_suite,
-                              sizeof(oscore_conf->edhoc_suite[0]) *
-                                (oscore_conf->edhoc_suite_cnt + 1));
+              coap_realloc_type(COAP_STRING,
+                                oscore_conf->edhoc_suite,
+                                sizeof(oscore_conf->edhoc_suite[0]) *
+                                    (oscore_conf->edhoc_suite_cnt + 1));
           if (oscore_conf->edhoc_suite == NULL)
             goto error_free_value_bin;
           oscore_conf->edhoc_suite[oscore_conf->edhoc_suite_cnt++] =
-                                                    value.u.value_int;
-        }
-        else {
+              value.u.value_int;
+#endif /* HAVE_OSCORE_EDHOC */
+        } else {
           coap_bin_const_t *unused_check;
 
-          switch(value.encoding) {
+          switch (value.encoding) {
           case COAP_ENC_HEX:
           case COAP_ENC_ASCII:
-#if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
-          case COAP_ENC_FILE_PEM:
-#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC*/
             memcpy(&unused_check,
-                   &(((char*)oscore_conf)[oscore_config[i].offset]),
+                   &(((char *)oscore_conf)[oscore_config[i].offset]),
                    sizeof(unused_check));
             if (unused_check != NULL) {
-              coap_log(LOG_WARNING, "oscore_conf: Keyword '%.*s' duplicated\n",
-                       (int)keyword.length, (const char *)keyword.s);
+              coap_log(LOG_WARNING,
+                       "oscore_conf: Keyword '%.*s' duplicated\n",
+                       (int)keyword.length,
+                       (const char *)keyword.s);
               goto error;
             }
-            memcpy(&(((char*)oscore_conf)[oscore_config[i].offset]),
-                   &value.u.value_bin, sizeof(value.u.value_bin));
+            memcpy(&(((char *)oscore_conf)[oscore_config[i].offset]),
+                   &value.u.value_bin,
+                   sizeof(value.u.value_bin));
             break;
+#if defined(HAVE_OSCORE_GROUP) || defined(HAVE_OSCORE_EDHOC)
+          case COAP_ENC_PUB_RAW:
+          case COAP_ENC_PUB_ASN1:
+          case COAP_ENC_PUB_FILE_PEM:
+            memcpy(&unused_check,
+                   &(((char *)oscore_conf)[oscore_config[i].offset]),
+                   sizeof(unused_check));
+            if (unused_check != NULL) {
+              coap_log(LOG_WARNING,
+                       "oscore_conf: Keyword '%.*s' duplicated\n",
+                       (int)keyword.length,
+                       (const char *)keyword.s);
+              goto error;
+            }
+            memcpy(&(((char *)oscore_conf)[oscore_config[i].offset]),
+                   &value.u.value_pub,
+                   sizeof(value.u.value_pub));
+            break;
+          case COAP_ENC_PRI_RAW:
+          case COAP_ENC_PRI_ASN1:
+          case COAP_ENC_PRI_FILE_PEM:
+            memcpy(&unused_check,
+                   &(((char *)oscore_conf)[oscore_config[i].offset]),
+                   sizeof(unused_check));
+            if (unused_check != NULL) {
+              coap_log(LOG_WARNING,
+                       "oscore_conf: Keyword '%.*s' duplicated\n",
+                       (int)keyword.length,
+                       (const char *)keyword.s);
+              goto error;
+            }
+            memcpy(&(((char *)oscore_conf)[oscore_config[i].offset]),
+                   &value.u.value_pri,
+                   sizeof(value.u.value_pri));
+            break;
+#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC*/
           case COAP_ENC_INTEGER:
           case COAP_ENC_BOOL:
-            memcpy(&(((char*)oscore_conf)[oscore_config[i].offset]),
-                   &value.u.value_int, sizeof(value.u.value_int));
+            memcpy(&(((char *)oscore_conf)[oscore_config[i].offset]),
+                   &value.u.value_int,
+                   sizeof(value.u.value_int));
             break;
           case COAP_ENC_TEXT:
             for (j = 0; oscore_config[i].text_mapping[j].text != NULL; j++) {
               if (memcmp(value.u.value_str.s,
                          oscore_config[i].text_mapping[j].text,
                          value.u.value_str.length) == 0) {
-                memcpy(&(((char*)oscore_conf)[oscore_config[i].offset]),
+                memcpy(&(((char *)oscore_conf)[oscore_config[i].offset]),
                        &oscore_config[i].text_mapping[j].value,
                        sizeof(oscore_config[i].text_mapping[j].value));
                 break;
@@ -1743,7 +2158,8 @@ coap_parse_oscore_conf_mem(coap_str_const_t conf_mem)
             if (oscore_config[i].text_mapping[j].text == NULL) {
               coap_log(LOG_WARNING,
                        "oscore_conf: Keyword '%.*s': value '%.*s' unknown\n",
-                       (int)keyword.length, (const char *)keyword.s,
+                       (int)keyword.length,
+                       (const char *)keyword.s,
                        (int)value.u.value_str.length,
                        (const char *)value.u.value_str.s);
               goto error;
@@ -1758,22 +2174,26 @@ coap_parse_oscore_conf_mem(coap_str_const_t conf_mem)
         break;
       }
     }
-    if (i == sizeof(oscore_config)/sizeof(oscore_config[0])) {
-      coap_log(LOG_WARNING, "oscore_conf: Keyword '%.*s', type %d unknown\n",
-               (int)keyword.length, (const char *)keyword.s, value.encoding);
+    if (i == sizeof(oscore_config) / sizeof(oscore_config[0])) {
+      coap_log(LOG_WARNING,
+               "oscore_conf: Keyword '%.*s', type '%s' unknown\n",
+               (int)keyword.length,
+               (const char *)keyword.s,
+               value.encoding_name);
       if (value.encoding == COAP_ENC_HEX || value.encoding == COAP_ENC_ASCII)
         coap_delete_bin_const(value.u.value_bin);
       goto error;
     }
   }
+#ifdef HAVE_OSCORE_EDHOC
   if (oscore_conf->use_edhoc) {
     if (!oscore_conf->recipient_id) {
       coap_log(LOG_WARNING,
                "oscore_conf: use_edhoc: recipient_id not defined\n");
       goto error;
     }
-  }
-  else {
+  } else {
+#endif /* HAVE_OSCORE_EDHOC */
     if (!oscore_conf->master_secret || !oscore_conf->sender_id ||
         !oscore_conf->recipient_id) {
       coap_log(LOG_WARNING,
@@ -1786,16 +2206,19 @@ coap_parse_oscore_conf_mem(coap_str_const_t conf_mem)
                "oscore_conf: Maximum size of sender_id is 7 bytes\n");
       goto error;
     }
+#ifdef HAVE_OSCORE_EDHOC
   }
+#endif /* HAVE_OSCORE_EDHOC */
   if (oscore_conf->recipient_id[0]->length > 7) {
     coap_log(LOG_WARNING,
              "oscore_conf: Maximum size of recipient_id is 7 bytes\n");
     goto error;
   }
 #ifdef HAVE_OSCORE_GROUP
-  if (oscore_conf->group_mode && (!oscore_conf->id_context ||
-      !oscore_conf->sender_public_key || !oscore_conf->sender_private_key ||
-      !oscore_conf->recipient_public_key)) {
+  if (oscore_conf->group_mode &&
+      (!oscore_conf->id_context || !oscore_conf->sender_public_key ||
+       !oscore_conf->sender_private_key ||
+       !oscore_conf->recipient_public_key)) {
     coap_log(LOG_WARNING,
              "oscore_conf: group: One or more of id_context,"
              " sender_public_key, sender_private_key and recipient_public_key"
@@ -1803,8 +2226,7 @@ coap_parse_oscore_conf_mem(coap_str_const_t conf_mem)
     goto error;
   }
   if (oscore_conf->pairwise_mode && (!oscore_conf->id_context)) {
-    coap_log(LOG_WARNING,
-             "oscore_conf: group: id_context not defined\n");
+    coap_log(LOG_WARNING, "oscore_conf: group: id_context not defined\n");
     goto error;
   }
 #endif /* HAVE_OSCORE_GROUP */
@@ -1818,18 +2240,19 @@ error:
 }
 
 static oscore_ctx_t *
-coap_oscore_init(coap_context_t *c_context, coap_oscore_conf_t *oscore_conf)
-{
-  oscore_ctx_t *osc_ctx;
+coap_oscore_init(coap_context_t *c_context, coap_oscore_conf_t *oscore_conf) {
+  oscore_ctx_t *osc_ctx = NULL;
   uint32_t i;
 
   if (!coap_crypto_check_cipher_alg(oscore_conf->aead_alg)) {
-    coap_log(LOG_WARNING, "COSE: Cipher Algorithm %d not supported\n",
+    coap_log(LOG_WARNING,
+             "COSE: Cipher Algorithm %d not supported\n",
              oscore_conf->aead_alg);
     goto error;
   }
   if (!coap_crypto_check_hkdf_alg(oscore_conf->hkdf_alg)) {
-    coap_log(LOG_WARNING, "COSE: HMAC Algorithm %d not supported\n",
+    coap_log(LOG_WARNING,
+             "COSE: HKDF Algorithm %d not supported\n",
              oscore_conf->hkdf_alg);
     goto error;
   }
@@ -1837,42 +2260,22 @@ coap_oscore_init(coap_context_t *c_context, coap_oscore_conf_t *oscore_conf)
   /* TODO Check other algs */
 #endif /* HAVE_OSCORE_GROUP */
 
-#ifndef HAVE_OSCORE_GROUP
-  if (oscore_conf->mode != OSCORE_MODE_SINGLE) {
-    coap_log(LOG_WARNING, "OSCORE: group not enabled\n");
-    goto error;
-  }
-#endif /* !HAVE_OSCORE_GROUP */
-
 #ifdef HAVE_OSCORE_GROUP
   if (oscore_conf->group_mode) {
     /* Set up Group operation */
     if (oscore_conf->recipient_id_count !=
-          oscore_conf->recipient_public_key_count) {
-      coap_log(LOG_WARNING, "OSCORE: recipient_id count (%d) does not match"
+        oscore_conf->recipient_public_key_count) {
+      coap_log(LOG_WARNING,
+               "OSCORE: recipient_id count (%d) does not match"
                " recipient_public_key count (%d)\n",
-                oscore_conf->recipient_id_count,
-                oscore_conf->recipient_public_key_count);
+               oscore_conf->recipient_id_count,
+               oscore_conf->recipient_public_key_count);
       goto error;
     }
   }
 #endif /* HAVE_OSCORE_GROUP */
 
-  osc_ctx = oscore_derive_ctx(oscore_conf->master_secret,
-                              oscore_conf->master_salt,
-                              oscore_conf->aead_alg,
-                              oscore_conf->hkdf_alg,
-                              oscore_conf->sender_id,
-                              oscore_conf->recipient_id[0],
-                              oscore_conf->id_context,
-                              oscore_conf->edhoc_suite,
-                              oscore_conf->edhoc_suite_cnt,
-                              oscore_conf->edhoc_method,
-                              oscore_conf->replay_window,
-                              oscore_conf->ssn_freq,
-                              oscore_conf->save_seq_num_func,
-                              oscore_conf->save_seq_num_func_param,
-                              oscore_conf->start_seq_num);
+  osc_ctx = oscore_derive_ctx(c_context, oscore_conf);
   if (!osc_ctx) {
     coap_log(LOG_CRIT, "OSCORE: Could not create Security Context!\n");
     goto error;
@@ -1887,9 +2290,8 @@ coap_oscore_init(coap_context_t *c_context, coap_oscore_conf_t *oscore_conf)
   coap_free(oscore_conf->recipient_id);
   oscore_conf->recipient_id = NULL;
 
-#if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
-  if (oscore_conf->group_mode) {
 #if HAVE_OSCORE_GROUP
+  if (oscore_conf->group_mode) {
     oscore_recipient_ctx_t *rcp_ctx = osc_ctx->recipient_chain;
 
     oscore_add_group_keys(osc_ctx,
@@ -1901,39 +2303,42 @@ coap_oscore_init(coap_context_t *c_context, coap_oscore_conf_t *oscore_conf)
       /* Add in Client Public Keys */
       rcp_ctx = rcp_ctx->next_recipient;
       if (rcp_ctx) {
-        coap_delete_bin_const(rcp_ctx->public_key);
+        coap_crypto_delete_public_key(rcp_ctx->public_key);
         rcp_ctx->public_key = oscore_conf->recipient_public_key[i];
-        if (coap_get_log_level() >= COAP_LOG_CIPHERS) {
+        if (coap_get_log_level() >= COAP_LOG_OSCORE) {
           if (rcp_ctx->public_key != NULL)
-            oscore_log_hex_value(COAP_LOG_CIPHERS, "Rcpt Pub Key",
-                                 rcp_ctx->public_key);
+            oscore_log_hex_value(COAP_LOG_OSCORE,
+                                 "Rcpt Pub Key",
+                                 rcp_ctx->public_key->key_value);
         }
       }
     }
     /* Free off the recipient_public_key array */
     coap_free(oscore_conf->recipient_public_key);
 
-    size_t   counter_signature_parameters_len = 0;
+    size_t counter_signature_parameters_len = 0;
     uint8_t *counter_signature_parameters =
-                     oscore_cs_key_params(COSE_curve_Ed25519,
-                                          COSE_KTY_OKP,
-                                          &counter_signature_parameters_len);
+        oscore_cs_key_params(oscore_conf->sign_curve,
+                             COSE_KTY_OKP,
+                             &counter_signature_parameters_len);
     oscore_add_group_algorithm(osc_ctx,
                                oscore_conf->sign_enc_alg,
                                oscore_conf->sign_alg,
                                counter_signature_parameters,
                                counter_signature_parameters_len);
     coap_free(counter_signature_parameters);
-#endif /* HAVE_OSCORE_GROUP */
-  }
-  else {
     osc_ctx->sender_context->private_key = oscore_conf->sender_private_key;
     osc_ctx->sender_context->public_key = oscore_conf->sender_public_key;
-    osc_ctx->sender_context->test_private_key = oscore_conf->test_private_key;
-    osc_ctx->sender_context->test_public_key = oscore_conf->test_public_key;
-    osc_ctx->sender_context->edhoc_dh_subject = oscore_conf->edhoc_dh_subject;
+  } else {
+    /* Need to clear up spurious configurations */
+    coap_crypto_delete_public_key(oscore_conf->sender_public_key);
+    coap_crypto_delete_private_key(oscore_conf->sender_private_key);
+    for (i = 0; i < oscore_conf->recipient_public_key_count; i++) {
+      coap_crypto_delete_public_key(oscore_conf->recipient_public_key[i]);
+    }
+    /* Free off the recipient_public_key array */
+    coap_free(oscore_conf->recipient_public_key);
   }
-
   if (oscore_conf->pairwise_mode) {
     /* Set up Pairwise operation */
 #if 0
@@ -1945,41 +2350,53 @@ coap_oscore_init(coap_context_t *c_context, coap_oscore_conf_t *oscore_conf)
                      uint8_t pairwise_sender_key_len)
 #endif
   }
-#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
+#endif /* HAVE_OSCORE_GROUP */
+#if HAVE_OSCORE_EDHOC
+  if (oscore_conf->use_edhoc) {
+    osc_ctx->sender_context->edhoc_dh_subject = oscore_conf->edhoc_dh_subject;
+    osc_ctx->sender_context->test_s_private_key =
+        oscore_conf->test_s_private_key;
+    osc_ctx->sender_context->test_s_public_key = oscore_conf->test_s_public_key;
+    osc_ctx->sender_context->test_r_private_key =
+        oscore_conf->test_r_private_key;
+    osc_ctx->sender_context->test_r_public_key = oscore_conf->test_r_public_key;
+  } else {
+    coap_delete_bin_const(oscore_conf->test_s_public_key);
+    coap_delete_bin_const(oscore_conf->test_s_private_key);
+    coap_delete_bin_const(oscore_conf->test_r_public_key);
+    coap_delete_bin_const(oscore_conf->test_r_private_key);
+  }
+#endif /* HAVE_OSCORE_EDHOC */
 
   /* As all is stored in osc_ctx, oscore_conf is no longer needed */
   coap_free(oscore_conf);
-
-  /* Add to linked chain */
-  oscore_enter_context(c_context, osc_ctx);
 
   /* return default first context  */
   return osc_ctx;
 
 error:
+  /* Remove from linked chain */
+  oscore_remove_context(c_context, osc_ctx);
+
   coap_delete_oscore_conf(oscore_conf);
   return NULL;
 }
 
 void
-coap_delete_all_oscore(coap_context_t *c_context)
-{
+coap_delete_all_oscore(coap_context_t *c_context) {
   oscore_free_contexts(c_context);
 }
 
 void
-coap_delete_oscore_associations(coap_session_t *session)
-{
+coap_delete_oscore_associations(coap_session_t *session) {
   oscore_delete_server_associations(session);
 }
-
 
 coap_oscore_conf_t *
 coap_new_oscore_conf(coap_str_const_t conf_mem,
                      coap_oscore_save_seq_num_t save_seq_num_func,
                      void *save_seq_num_func_param,
-                     uint64_t start_seq_num)
-{
+                     uint64_t start_seq_num) {
   coap_oscore_conf_t *oscore_conf = coap_parse_oscore_conf_mem(conf_mem);
 
   if (oscore_conf == NULL)
@@ -1995,11 +2412,10 @@ coap_new_oscore_conf(coap_str_const_t conf_mem,
  * Compute the size of the potential OSCORE overhead
  */
 size_t
-coap_oscore_overhead(coap_session_t *session, coap_pdu_t *pdu)
-{
+coap_oscore_overhead(coap_session_t *session, coap_pdu_t *pdu) {
   size_t overhead = 0;
   oscore_recipient_ctx_t *rcp_ctx = session->recipient_ctx;
-  oscore_ctx_t *osc_ctx = rcp_ctx ? rcp_ctx->common_ctx : NULL;
+  oscore_ctx_t *osc_ctx = rcp_ctx ? rcp_ctx->osc_ctx : NULL;
   coap_opt_iterator_t opt_iter;
   coap_opt_t *option;
 
@@ -2021,7 +2437,7 @@ coap_oscore_overhead(coap_session_t *session, coap_pdu_t *pdu)
   /* Echo option */
 
   /* OSCORE option */
-              /* Option header */
+  /* Option header */
   overhead += 1 +
               /* Partial IV (64 bits max)*/
               8 +
@@ -2036,7 +2452,7 @@ coap_oscore_overhead(coap_session_t *session, coap_pdu_t *pdu)
   /* Signing Overhead */
 #ifdef HAVE_OSCORE_GROUP
   if (osc_ctx && osc_ctx->mode != OSCORE_MODE_SINGLE)
-    overhead += Ed25519_SIGNATURE_LEN;
+    overhead += osc_ctx->sender_context->public_key->sign_size;
 #endif /* HAVE_OSCORE_GROUP */
 
   /* End of options marker */
@@ -2047,36 +2463,37 @@ coap_oscore_overhead(coap_session_t *session, coap_pdu_t *pdu)
 
 int
 coap_new_oscore_recipient(coap_context_t *context,
-                              coap_bin_const_t *recipient_id)
-{
-  if (context->osc_ctx == NULL)
+                          coap_bin_const_t *recipient_id) {
+  if (context->p_osc_ctx == NULL)
     return 0;
-  if (oscore_add_recipient(context->osc_ctx, recipient_id) == NULL)
+  if (oscore_add_recipient(context->p_osc_ctx, recipient_id) == NULL)
     return 0;
   return 1;
 }
 
 int
 coap_delete_oscore_recipient(coap_context_t *context,
-                                 coap_bin_const_t *recipient_id)
-{
-  if (context->osc_ctx == NULL)
+                             coap_bin_const_t *recipient_id) {
+  if (context->p_osc_ctx == NULL)
     return 0;
-  return oscore_delete_recipient(context->osc_ctx, recipient_id);
+  return oscore_delete_recipient(context->p_osc_ctx, recipient_id);
 }
 
 /** @} */
 
 #else /* !HAVE_OSCORE */
 int
-coap_oscore_is_supported(void)
-{
+coap_oscore_is_supported(void) {
   return 0;
 }
 
 int
-coap_oscore_group_is_supported(void)
-{
+coap_oscore_group_is_supported(void) {
+  return 0;
+}
+
+int
+coap_oscore_edhoc_is_supported(void) {
   return 0;
 }
 
@@ -2085,8 +2502,7 @@ coap_new_client_session_oscore(coap_context_t *ctx,
                                const coap_address_t *local_if,
                                const coap_address_t *server,
                                coap_proto_t proto,
-                               coap_oscore_conf_t *oscore_conf)
-{
+                               coap_oscore_conf_t *oscore_conf) {
   (void)ctx;
   (void)local_if;
   (void)server;
@@ -2101,8 +2517,7 @@ coap_new_client_session_oscore_psk(coap_context_t *ctx,
                                    const coap_address_t *server,
                                    coap_proto_t proto,
                                    coap_dtls_cpsk_t *psk_data,
-                                   coap_oscore_conf_t *oscore_conf)
-{
+                                   coap_oscore_conf_t *oscore_conf) {
   (void)ctx;
   (void)local_if;
   (void)server;
@@ -2118,8 +2533,7 @@ coap_new_client_session_oscore_pki(coap_context_t *ctx,
                                    const coap_address_t *server,
                                    coap_proto_t proto,
                                    coap_dtls_pki_t *pki_data,
-                                   coap_oscore_conf_t *oscore_conf)
-{
+                                   coap_oscore_conf_t *oscore_conf) {
   (void)ctx;
   (void)local_if;
   (void)server;
@@ -2131,8 +2545,7 @@ coap_new_client_session_oscore_pki(coap_context_t *ctx,
 
 int
 coap_context_oscore_server(coap_context_t *context,
-                           coap_oscore_conf_t *oscore_conf)
-{
+                           coap_oscore_conf_t *oscore_conf) {
   (void)context;
   (void)oscore_conf;
   return 0;
@@ -2142,8 +2555,7 @@ coap_oscore_conf_t *
 coap_new_oscore_conf(coap_str_const_t conf_mem,
                      coap_oscore_save_seq_num_t save_seq_num_func,
                      void *save_seq_num_func_param,
-                     uint64_t start_seq_num)
-{
+                     uint64_t start_seq_num) {
   (void)conf_mem;
   (void)save_seq_num_func;
   (void)save_seq_num_func_param;
@@ -2152,16 +2564,14 @@ coap_new_oscore_conf(coap_str_const_t conf_mem,
 }
 
 int
-coap_delete_oscore_conf(coap_oscore_conf_t *oscore_conf)
-{
+coap_delete_oscore_conf(coap_oscore_conf_t *oscore_conf) {
   (void)oscore_conf;
   return 0;
 }
 
 int
 coap_new_oscore_recipient(coap_context_t *context,
-                          coap_bin_const_t *recipient_id)
-{
+                          coap_bin_const_t *recipient_id) {
   (void)context;
   (void)recipient_id;
   return 0;
@@ -2169,8 +2579,7 @@ coap_new_oscore_recipient(coap_context_t *context,
 
 int
 coap_delete_oscore_recipient(coap_context_t *context,
-                             coap_bin_const_t *recipient_id)
-{
+                             coap_bin_const_t *recipient_id) {
   (void)context;
   (void)recipient_id;
   return 0;

@@ -30,9 +30,8 @@
 
 /**
  * @file oscore.h
- * @brief An implementation of the Object Security for Constrained RESTful Enviornments (RFC 8613).
- * \author
- *      Martin Gunnarsson  <martin.gunnarsson@ri.se>
+ * @brief An implementation of the Object Security for Constrained RESTful
+ * Enviornments (RFC 8613). \author Martin Gunnarsson  <martin.gunnarsson@ri.se>
  * major rewrite for libcoap
  *      Peter van der Stok <consultancy@vanderstok.org>
  *      on request of Fairhair alliance
@@ -55,74 +54,83 @@
  */
 
 /* Estimate your header size, especially when using Proxy-Uri. */
-#define COAP_MAX_HEADER_SIZE          70
+#define COAP_MAX_HEADER_SIZE 70
 
 /* OSCORE error messages  (to be moved elsewhere  */
-#define OSCORE_DECRYPTION_ERROR       100
-#define PACKET_SERIALIZATION_ERROR    102
+#define OSCORE_DECRYPTION_ERROR    100
+#define PACKET_SERIALIZATION_ERROR 102
 
 /* oscore_cs_params
  * returns cbor array [[param_type], [paramtype, param]]
  */
-uint8_t *
-oscore_cs_params(int8_t param, int8_t param_type, size_t *len);
+uint8_t *oscore_cs_params(int8_t param, int8_t param_type, size_t *len);
 
 /* oscore_cs_key_params
  * returns cbor array [paramtype, param]
  */
 uint8_t *
-oscore_cs_key_params(int8_t param, int8_t param_type, size_t *len);
+oscore_cs_key_params(cose_curve_t param, int8_t param_type, size_t *len);
 
 //
 // oscore_encode_option_value
 //
-size_t
-oscore_encode_option_value(uint8_t *option_buffer, cose_encrypt0_t *cose, uint8_t group);
+size_t oscore_encode_option_value(uint8_t *option_buffer,
+                                  cose_encrypt0_t *cose,
+                                  uint8_t group);
 
 /*
  * Decodes the OSCORE option value and places decoded values into the provided
  * cose structure */
-int
-oscore_decode_option_value(const uint8_t *option_value, size_t option_len,
-                           cose_encrypt0_t *cose);
-
+int oscore_decode_option_value(const uint8_t *option_value,
+                               size_t option_len,
+                               cose_encrypt0_t *cose);
 
 /* Sets alg and keys in COSE SIGN  */
-void
-oscore_populate_sign(cose_sign1_t *sign, oscore_ctx_t *ctx,
-                     coap_bin_const_t *public_key,
-                     coap_bin_const_t *private_key);
+void oscore_populate_sign(cose_sign1_t *sign,
+                          oscore_ctx_t *ctx,
+                          coap_crypto_pub_key_t *public_key,
+                          coap_crypto_pri_key_t *private_key);
 
 //
 // oscore_prepare_sig_structure
 // creates and sets structure to be signed
-size_t
-oscore_prepare_sig_structure(uint8_t *sigptr, size_t sig_size,
-                             const uint8_t *e_aad_buffer, uint16_t e_aad_len,
-                             const uint8_t *text, uint16_t text_len);
+size_t oscore_prepare_sig_structure(uint8_t *sigptr,
+                                    size_t sig_size,
+                                    const uint8_t *e_aad_buffer,
+                                    uint16_t e_aad_len,
+                                    const uint8_t *text,
+                                    uint16_t text_len);
 
-/* Creates AAD, creates External AAD and serializes it into the complete AAD structure. Returns serialized size. */
-size_t
-oscore_prepare_aad(const uint8_t *external_aad_buffer, size_t external_aad_len,
-                   uint8_t *aad_buffer, size_t aad_size);
+/* Creates AAD, creates External AAD and serializes it into the complete AAD
+ * structure. Returns serialized size. */
+size_t oscore_prepare_aad(const uint8_t *external_aad_buffer,
+                          size_t external_aad_len,
+                          uint8_t *aad_buffer,
+                          size_t aad_size);
 
-size_t
-oscore_prepare_e_aad(oscore_ctx_t *ctx, cose_encrypt0_t *cose,
-                     const uint8_t *oscore_option, size_t oscore_option_len,
-                     coap_bin_const_t *sender_public_key,
-                     uint8_t *external_aad_ptr, size_t external_aad_size);
+size_t oscore_prepare_e_aad(oscore_ctx_t *ctx,
+                            cose_encrypt0_t *cose,
+                            const uint8_t *oscore_option,
+                            size_t oscore_option_len,
+                            coap_bin_const_t *sender_public_key,
+                            uint8_t *external_aad_ptr,
+                            size_t external_aad_size);
 
 /* Creates Nonce */
-void
-oscore_generate_nonce(cose_encrypt0_t *ptr, oscore_ctx_t *ctx, uint8_t *buffer, uint8_t size);
+void oscore_generate_nonce(cose_encrypt0_t *ptr,
+                           oscore_ctx_t *ctx,
+                           uint8_t *buffer,
+                           uint8_t size);
 
 /*Return 1 if OK, Error code otherwise */
-uint8_t oscore_validate_sender_seq(oscore_recipient_ctx_t *ctx, cose_encrypt0_t *cose);
+uint8_t oscore_validate_sender_seq(oscore_recipient_ctx_t *ctx,
+                                   cose_encrypt0_t *cose);
 
 /* Return 0 if SEQ MAX, return 1 if OK */
 uint8_t oscore_increment_sender_seq(oscore_ctx_t *ctx);
 
-/* Restore the sequence number and replay-window to the previous state. This is to be used when decryption fail. */
+/* Restore the sequence number and replay-window to the previous state. This is
+ * to be used when decryption fail. */
 void oscore_roll_back_seq(oscore_recipient_ctx_t *ctx);
 
 /** @} */

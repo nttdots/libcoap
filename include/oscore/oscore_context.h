@@ -30,7 +30,8 @@
 
 /**
  * @file oscore_context.h
- * @brief An implementation of the Object Security for Constrained RESTful Enviornments (RFC 8613).
+ * @brief An implementation of the Object Security for Constrained RESTful
+ * Enviornments (RFC 8613).
  *
  * \author
  *      Martin Gunnarsson  <martin.gunnarsson@ri.se>
@@ -56,16 +57,15 @@
  * @{
  */
 
-#define CONTEXT_KEY_LEN 16
-#define COAP_TOKEN_LEN 8   // added
-#define TOKEN_SEQ_NUM  2     // to be set by application
-#define EP_CTX_NUM  10       // to be set by application
-#define CONTEXT_INIT_VECT_LEN 13
-#define CONTEXT_SEQ_LEN sizeof(uint64_t)
+#define CONTEXT_KEY_LEN         16
+#define TOKEN_SEQ_NUM           2  // to be set by application
+#define EP_CTX_NUM              10 // to be set by application
+#define CONTEXT_INIT_VECT_LEN   13
+#define CONTEXT_SEQ_LEN         sizeof(uint64_t)
 #define Ed25519_PRIVATE_KEY_LEN 32
-#define Ed25519_PUBLIC_KEY_LEN 32
-#define Ed25519_SEED_LEN 32
-#define Ed25519_SIGNATURE_LEN 64
+#define Ed25519_PUBLIC_KEY_LEN  32
+#define Ed25519_SEED_LEN        32
+#define Ed25519_SIGNATURE_LEN   64
 
 #define OSCORE_SEQ_MAX (((uint64_t)1 << 40) - 1)
 
@@ -83,59 +83,64 @@ struct oscore_ctx_t {
   struct oscore_ctx_t *next;
   coap_bin_const_t *master_secret;
   coap_bin_const_t *master_salt;
-  coap_bin_const_t *common_iv; /**< Derived from Master Secret,
-                                    Master Salt, and ID Context */
-  coap_bin_const_t *id_context;  /* contains GID in case of group */
+  coap_bin_const_t *common_iv;  /**< Derived from Master Secret,
+                                     Master Salt, and ID Context */
+  coap_bin_const_t *id_context; /* contains GID in case of group */
   oscore_sender_ctx_t *sender_context;
   oscore_recipient_ctx_t *recipient_chain;
   cose_alg_t aead_alg;
   cose_alg_t hkdf_alg;
   oscore_mode_t mode;
-  uint32_t ssn_freq;              /**< Sender Seq Num update frequency */
+  uint8_t rfc8613_b_1_2; /**< 1 if rfc8613 B.1.2 enabled else 0 */
+  uint8_t rfc8613_b_2;   /**< 1 if rfc8613 B.2 protocol else 0 */
+  uint32_t ssn_freq;     /**< Sender Seq Num update frequency */
   uint32_t replay_window_size;
   coap_oscore_save_seq_num_t save_seq_num_func; /**< Called every seq num
                                                      change */
   void *save_seq_num_func_param; /**< Passed to save_seq_num_func() */
 #ifdef HAVE_OSCORE_GROUP
-  coap_bin_const_t *gm_public_key;
-  coap_bin_const_t *sign_params;      /* binary CBOR array */
+  coap_crypto_pub_key_t *gm_public_key;
+  coap_bin_const_t *sign_params; /* binary CBOR array */
   cose_alg_t sign_enc_alg;
   cose_alg_t sign_alg;
   coap_bin_const_t *group_enc_key;
   cose_alg_t pairwise_agree_alg;
 #endif /* HAVE_OSCORE_GROUP */
 #ifdef HAVE_OSCORE_EDHOC
-  edhoc_method_t edhoc_method;    /**< EDHOC method */
-  int *edhoc_suite;               /**< Set of valid EDHOC suites */
-  uint32_t edhoc_suite_cnt;       /**< Number of EDHOC suite entries */
-#endif /* HAVE_OSCORE_EDHOC */
+  edhoc_method_t edhoc_method; /**< EDHOC method */
+  int *edhoc_suite;            /**< Set of valid EDHOC suites */
+  uint32_t edhoc_suite_cnt;    /**< Number of EDHOC suite entries */
+#endif                         /* HAVE_OSCORE_EDHOC */
 };
 
 struct oscore_sender_ctx_t {
   uint64_t seq;
-  uint64_t next_seq;             /**< Used for ssn_freq updating */
+  uint64_t next_seq; /**< Used for ssn_freq updating */
   coap_bin_const_t *sender_key;
   coap_bin_const_t *sender_id;
 #if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
   /* addition for group communication */
-  coap_bin_const_t *public_key;
-  coap_bin_const_t *private_key;
+  coap_crypto_pub_key_t *public_key;
+  coap_crypto_pri_key_t *private_key;
   /* addition for pairwise communication */
-  coap_bin_const_t *pairwise_sender_key;
+  coap_crypto_pub_key_t *pairwise_public_key;
+  coap_crypto_pri_key_t *pairwise_private_key;
 #endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
 #if HAVE_OSCORE_EDHOC
-  coap_bin_const_t *test_public_key;
-  coap_bin_const_t *test_private_key;
+  coap_bin_const_t *test_s_public_key;
+  coap_bin_const_t *test_s_private_key;
+  coap_bin_const_t *test_r_public_key;
+  coap_bin_const_t *test_r_private_key;
   coap_bin_const_t *edhoc_dh_subject;
 #endif /* HAVE_OSCORE_EDHOC */
 };
 
 struct oscore_recipient_ctx_t {
+  /* This field allows recipient chaining */
   oscore_recipient_ctx_t *next_recipient;
-            /* This field allows recipient chaining */
-  oscore_ctx_t *common_ctx;
+  oscore_ctx_t *osc_ctx;
   uint64_t last_seq;
-//  uint64_t highest_seq;
+  //  uint64_t highest_seq;
   uint64_t sliding_window;
   uint64_t rollback_sliding_window;
   uint64_t rollback_last_seq;
@@ -145,28 +150,26 @@ struct oscore_recipient_ctx_t {
   uint8_t initial_state;
 #ifdef HAVE_OSCORE_GROUP
   /* addition for group communication */
-  coap_bin_const_t *public_key;
+  coap_crypto_pub_key_t *public_key;
   /* addition for pairwise communication */
-  coap_bin_const_t *pairwise_recipient_key;
+  coap_crypto_pub_key_t *pairwise_public_key;
 #endif /* HAVE_OSCORE_GROUP */
 };
 
-#define OSCORE_ASSOCIATIONS_ADD(r, obj) \
+#define OSCORE_ASSOCIATIONS_ADD(r, obj)                                        \
   HASH_ADD(hh, (r), token->s[0], (obj)->token->length, (obj))
 
-#define OSCORE_ASSOCIATIONS_DELETE(r, obj) \
-  HASH_DELETE(hh, (r), (obj))
+#define OSCORE_ASSOCIATIONS_DELETE(r, obj) HASH_DELETE(hh, (r), (obj))
 
-#define OSCORE_ASSOCIATIONS_ITER(r,tmp)  \
-  oscore_associations_t *tmp, *rtmp; \
-  HASH_ITER(hh, (r), tmp, rtmp)
+#define OSCORE_ASSOCIATIONS_ITER(r, tmp)                                       \
+  oscore_associations_t *tmp, *rtmp;                                           \
+  HASH_ITER (hh, (r), tmp, rtmp)
 
-#define OSCORE_ASSOCIATIONS_ITER_SAFE(e, el, rtmp) \
-for ((el) = (e); (el) && ((rtmp) = (el)->hh.next, 1); (el) = (rtmp))
+#define OSCORE_ASSOCIATIONS_ITER_SAFE(e, el, rtmp)                             \
+  for ((el) = (e); (el) && ((rtmp) = (el)->hh.next, 1); (el) = (rtmp))
 
-#define OSCORE_ASSOCIATIONS_FIND(r, k, res) {                     \
-    HASH_FIND(hh, (r), (k)->s, (k)->length, (res)); \
-  }
+#define OSCORE_ASSOCIATIONS_FIND(r, k, res)                                    \
+  { HASH_FIND(hh, (r), (k)->s, (k)->length, (res)); }
 
 struct oscore_association_t {
   UT_hash_handle hh;
@@ -179,112 +182,137 @@ struct oscore_association_t {
   uint8_t is_observe;
 };
 
-void
-oscore_enter_context(coap_context_t *c_context, oscore_ctx_t *osc_ctx);
+/**
+ * oscore_derive_ctx - derive a osc_ctx fro oscore_conf information
+ *
+ * @param c_context The CoAP context to associate OSCORE context with.
+ * @param oscore_conf The OSCORE configuration to use.
+ *
+ * @return NULL if failure or derived OSCORE context linked onto
+ *         @p c_context chain.
+ */
+oscore_ctx_t *oscore_derive_ctx(coap_context_t *c_context,
+                                coap_oscore_conf_t *oscore_conf);
 
-oscore_ctx_t *
-oscore_derive_ctx(coap_bin_const_t *master_secret,
-                  coap_bin_const_t *master_salt,
-                  cose_alg_t cipher_alg, cose_alg_t hamc_alg,
-                  coap_bin_const_t *sid,
-                  coap_bin_const_t *rid,
-                  coap_bin_const_t *id_context,
-                  int *suite,
-                  size_t suite_cnt,
-                  int method,
-                  uint32_t replay_window, uint32_t ssn_freq,
-                  coap_oscore_save_seq_num_t save_seq_num_func,
-                  void *save_seq_num_func_param,
-                  uint64_t start_seq_num);
+/**
+ * oscore_duplicate_ctx - duplicate a osc_ctx
+ *
+ * @param c_context The CoAP context to associate OSCORE context with.
+ * @param o_osc_ctx The OSCORE context to duplicate.
+ * @param sender_id The Sender ID to use in the duplication.
+ * @param recipient_id The Recipient ID to use in the duplication.
+ * @param id_context The Context ID to use in the duplication.
+ *
+ * @return NULL if failure or duplicated OSCORE context linked onto
+ *         @p c_context chain.
+ */
+oscore_ctx_t *oscore_duplicate_ctx(coap_context_t *c_context,
+                                   oscore_ctx_t *o_osc_ctx,
+                                   coap_bin_const_t *sender_id,
+                                   coap_bin_const_t *recipient_id,
+                                   coap_bin_const_t *id_context);
 
-void
-oscore_free_context(oscore_ctx_t *osc_ctx);
+/**
+ * oscore_update_ctx - update a osc_ctx with a new id_context
+ *
+ * @param osc_ctx The OSCORE context to update.
+ * @param id_context The Context ID to use in the duplication.
+ */
+void oscore_update_ctx(oscore_ctx_t *osc_ctx, coap_bin_const_t *id_context);
 
-void
-oscore_free_contexts(coap_context_t *c_context);
+void oscore_free_context(oscore_ctx_t *osc_ctx);
 
-int
-oscore_remove_context(coap_context_t *c_context, oscore_ctx_t *osc_ctx);
+void oscore_free_contexts(coap_context_t *c_context);
 
-oscore_recipient_ctx_t *
-oscore_add_recipient(oscore_ctx_t *ctx,
-                     coap_bin_const_t *rid);
+int oscore_remove_context(coap_context_t *c_context, oscore_ctx_t *osc_ctx);
 
-int
-oscore_delete_recipient(oscore_ctx_t *osc_ctx,
-                       coap_bin_const_t *rid);
+oscore_recipient_ctx_t *oscore_add_recipient(oscore_ctx_t *ctx,
+                                             coap_bin_const_t *rid);
 
-void
-oscore_add_pair_keys(oscore_ctx_t *ctx,
-                     oscore_recipient_ctx_t *recipient_ctx,
-                     uint8_t *pairwise_recipient_key,
-                     uint8_t pairwise_recipient_key_len,
-                     uint8_t *pairwise_sender_key,
-                     uint8_t pairwise_sender_key_len);
+int oscore_delete_recipient(oscore_ctx_t *osc_ctx, coap_bin_const_t *rid);
 
+#ifdef HAVE_OSCORE_GROUP
+void oscore_add_pair_keys(oscore_ctx_t *ctx,
+                          oscore_recipient_ctx_t *recipient_ctx,
+                          uint8_t *pairwise_recipient_key,
+                          uint8_t pairwise_recipient_key_len,
+                          uint8_t *pairwise_sender_key,
+                          uint8_t pairwise_sender_key_len);
 
-void
-oscore_add_group_keys(oscore_ctx_t *ctx,
-                      oscore_recipient_ctx_t *recipient_ctx,
-                      coap_bin_const_t *snd_public_key,
-                      coap_bin_const_t *snd_private_key,
-                      coap_bin_const_t *rcp_public_key);
+void oscore_add_group_keys(oscore_ctx_t *ctx,
+                           oscore_recipient_ctx_t *recipient_ctx,
+                           coap_crypto_pub_key_t *snd_public_key,
+                           coap_crypto_pri_key_t *snd_private_key,
+                           coap_crypto_pub_key_t *rcp_public_key);
 
-void
-oscore_add_group_algorithm(oscore_ctx_t *ctx,
-                           cose_alg_t  counter_signature_enc_algorithm,
-                           cose_alg_t  counter_signature_algorithm,
-                           uint8_t *counter_signature_parameters,
-                           uint8_t counter_signature_parameters_len);
+void oscore_add_group_algorithm(oscore_ctx_t *ctx,
+                                cose_alg_t counter_signature_enc_algorithm,
+                                cose_alg_t counter_signature_algorithm,
+                                uint8_t *counter_signature_parameters,
+                                uint8_t counter_signature_parameters_len);
+#endif /* HAVE_OSCORE_GROUP */
 
 int _strcmp(const char *a, const char *b);
 
-uint8_t
-oscore_bytes_equal(uint8_t *a_ptr, uint8_t a_len, uint8_t *b_ptr, uint8_t b_len);
+uint8_t oscore_bytes_equal(uint8_t *a_ptr,
+                           uint8_t a_len,
+                           uint8_t *b_ptr,
+                           uint8_t b_len);
 
-void oscore_convert_to_hex(const uint8_t *src, size_t src_len,
-                           char *dest, size_t dst_len);
+void oscore_convert_to_hex(const uint8_t *src,
+                           size_t src_len,
+                           char *dest,
+                           size_t dst_len);
 
-void
-oscore_log_hex_value(coap_log_t level, const char *name,
-                     coap_bin_const_t *value);
+void oscore_log_hex_value(coap_log_t level,
+                          const char *name,
+                          coap_bin_const_t *value);
 
-void
-oscore_log_int_value(coap_log_t level, const char *name, int value);
+void oscore_log_int_value(coap_log_t level, const char *name, int value);
 
-//
-//  oscore_find_context
-// finds context for received send_id, reciever_id, or context_id
-// that is stored in cose->key_id
-// used by client interface
-oscore_ctx_t *
-oscore_find_context(coap_context_t *c_context,
-                    coap_bin_const_t sndkey_id,
-                    coap_bin_const_t rcpkey_id,
-                    coap_bin_const_t ctxkey_id,
-                    oscore_recipient_ctx_t **recipient_ctx);
+/**
+ *  oscore_find_context - Locate recipient context (and hence OSCORE context)
+ *
+ * @param c_context The CoAP COntext to search.
+ * @param rcpkey_id The Recipient kid.
+ * @param ctxkey_id The ID Context to match (or NULL if no check).
+ * @param oscore_r2 Partial id_context to match against or NULL.
+ * @param recipient_ctx The recipient context to update.
+ *
+ * return The OSCORE context and @p recipient_ctx updated, or NULL is error.
+ */
+oscore_ctx_t *oscore_find_context(coap_context_t *c_context,
+                                  coap_bin_const_t rcpkey_id,
+                                  coap_bin_const_t *ctxkey_id,
+                                  uint8_t *oscore_r2,
+                                  oscore_recipient_ctx_t **recipient_ctx);
 
 void oscore_free_association(oscore_association_t *association);
 
 int oscore_new_association(coap_session_t *session,
                            coap_bin_const_t *token,
                            oscore_recipient_ctx_t *recipient_ctx,
-                           coap_bin_const_t *aad, coap_bin_const_t *nonce,
-                           coap_bin_const_t *partial_iv, int is_observe);
+                           coap_bin_const_t *aad,
+                           coap_bin_const_t *nonce,
+                           coap_bin_const_t *partial_iv,
+                           int is_observe);
 
-oscore_association_t * oscore_find_association(coap_session_t *session,
-                                               coap_bin_const_t *token);
+oscore_association_t *oscore_find_association(coap_session_t *session,
+                                              coap_bin_const_t *token);
 
 int oscore_delete_association(coap_session_t *session,
-                               oscore_association_t *association);
+                              oscore_association_t *association);
 
 void oscore_delete_server_associations(coap_session_t *session);
 
-int oscore_derive_keystream(oscore_ctx_t *osc_ctx, cose_encrypt0_t *code,
+int oscore_derive_keystream(oscore_ctx_t *osc_ctx,
+                            cose_encrypt0_t *code,
                             uint8_t coap_request,
                             coap_bin_const_t *sender_key,
-                            coap_bin_const_t *id_context, size_t cs_size,
-                            uint8_t *keystream, size_t keystream_size);
+                            coap_bin_const_t *id_context,
+                            size_t cs_size,
+                            uint8_t *keystream,
+                            size_t keystream_size);
 
 /** @} */
 

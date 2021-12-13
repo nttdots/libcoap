@@ -71,8 +71,10 @@ OSCORE provides end-to-end protection between endpoints communicating using
 CoAP.  (D)TLS can only protect HOP by HOP traffic which allows proxies to
 manipulate information.
 
-The *coap_oscore_is_supported*() function returns 1 if OSCORE is supported,
-otherwise 0.
+CALLBACK HANDLER
+----------------
+
+*Callback Type: coap_oscore_save_seq_num_t*
 
 The coap_oscore_save_seq_num_t method handler function prototype is defined as:
 [source, c]
@@ -80,6 +82,16 @@ The coap_oscore_save_seq_num_t method handler function prototype is defined as:
 typedef int (*coap_oscore_save_seq_num_t)(uint64_t sender_seq_num, void *param);
 ----
 and returns 0 on failure, 1 on succes.
+
+FUNCTIONS
+---------
+
+*Function: coap_oscore_is_supported()*
+
+The *coap_oscore_is_supported*() function returns 1 if OSCORE is supported,
+otherwise 0.
+
+*Function: coap_new_oscore_conf()*
 
 The *coap_new_oscore_conf*() function is used to build a new OSCORE
 configuration. It parses the provided OSCORE configuration
@@ -92,7 +104,7 @@ _start_seq_num_. SSN are used so that anti-replay mechanisms do not kick in
 following application restarts. The rate of calling _save_seq_num_func_ can
 be controlled by the _ssn_freq_ parameter as defined in *coap-oscore-conf*(5).
 
-This OSCORE configuratio is then used in the client and server OSCORE version
+This OSCORE configuration is then used in the client and server OSCORE version
 of the setup functions.
 
 If the server is proxy enabled and the new incoming session is OSCORE encoded
@@ -107,19 +119,27 @@ indicates the session will get forwarded, then the OSCORE protection is
 untouched, otherwise the session will get dropped with an unknown critical
 option error.
 
+*Function: coap_new_oscore_recipient()*
+
 The *coap_new_oscore_recipient*() is used to add a new _recipient_id_ to the
 OSCORE information associated with _context_.  The new _recipient_id_ should
 be unique and this function should only be used for server based applications
 as the client will only ever use the first defined _recipient_id_.
 
+*Function: coap_delete_oscore_recipient()*
+
 The *coap_delete_oscore_recipient*() is used to remove the _recipient_id_ from
 the OSCORE information associated with _context_.  OSCORE Traffic continuing
 to use _recipient_id_ will then fail.
+
+*Function: coap_delete_oscore_conf()*
 
 The *coap_delete_oscore_conf*() function is used to free off the
 coap_oscore_conf_t structure _oscore_conf_ as returned by
 *coap_new_oscore_conf*().  Normally this function never needs to be called
 as _oscore_conf_ is freed off by the call the client or server setup functions.
+
+*Function: coap_new_client_session_oscore()*
 
 The *coap_new_client_session_oscore*() is basically the same as
 *coap_new_client_session*(3), but has an additional parameter _oscore_conf_
@@ -131,6 +151,8 @@ If the port is set to 0 in _server_, then the default CoAP port is used.
 Normally _local_if_ would be set to NULL, but by specifying _local_if_ the
 source of the network session can be bound to a specific IP address or port.
 The session will initially have a reference count of 1.
+
+*Function: coap_new_client_session_oscore_psk()*
 
 The *coap_new_client_session_oscore_psk*() is basically the same as
 *coap_new_client_session_psk2*(3), but has an additional parameter
@@ -145,6 +167,8 @@ port is used.  Normally _local_if_ would be set to NULL, but by specifying
 _local_if_ the source of the network session can be bound to a specific IP
 address or port. The session will initially have a reference count of 1.
 
+*Function: coap_new_client_session_oscore_pki()*
+
 The *coap_new_client_session_oscore_pki*() is basically the same as
 *coap_new_client_session_pki*(3), but has an additional parameter
 _oscore_conf_ that is provided by *coap_new_oscore_conf*(). This
@@ -157,6 +181,8 @@ If the port is set to 0 in _server_, then the default CoAP port is used.
 Normally _local_if_ would be set to NULL, but by specifying _local_if_ the
 source of the network session can be bound to a specific IP address or port.
 The session will initially have a reference count of 1.
+
+*Function: coap_context_oscore_server()*
 
 The *coap_context_oscore_server*() function is used to enable the server to
 support OSCORE incoming sessions. It updates _context_ with the OSCORE
@@ -256,8 +282,7 @@ setup_client_session (struct in_addr ip_address) {
     }
     session = coap_new_client_session_oscore(context, NULL, &server,
                                              COAP_PROTO_UDP, oscore_conf);
-  }
-  else {
+  } else {
     session = coap_new_client_session(context, NULL, &server, COAP_PROTO_UDP);
   }
   if (!session) {

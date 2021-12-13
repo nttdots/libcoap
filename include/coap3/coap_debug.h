@@ -81,6 +81,10 @@ typedef int coap_log_t;
 # define LOG_DEBUG  7
 #endif
 /*
+ * Support logging for OSCORE information that is different to (D)TLS info
+ */
+#define COAP_LOG_OSCORE (LOG_DEBUG+1)
+/*
    LOG_DEBUG+2 gives ciphers in GnuTLS
    Use COAP_LOG_CIPHERS to output Cipher Info in OpenSSL etc.
  */

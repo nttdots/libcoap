@@ -30,7 +30,8 @@
 
 /**
  * @file oscore_crypto.c
- * @brief An implementation of the Hash Based Key Derivation Function (RFC) and wrappers for AES-CCM*.
+ * @brief An implementation of the Hash Based Key Derivation Function (RFC) and
+ * wrappers for AES-CCM*.
  *
  * \author
  *      Martin Gunnarsson  <martin.gunnarsson@ri.se>
@@ -48,9 +49,6 @@
 #include "oscore/oscore_cose.h"
 
 #include <stdio.h>
-#ifdef HAVE_OSCORE_GROUP
-#include "oscore_group_crypto/ed25519.h"
-#endif /* HAVE_OSCORE_GROUP */
 #include "oscore/oscore_context.h"
 
 /*
@@ -58,9 +56,10 @@
  *        0 OK
  */
 int
-oscore_hmac_shaX(cose_alg_t hkdf_alg, coap_bin_const_t *key,
-                 coap_bin_const_t *data, coap_bin_const_t **hmac)
-{
+oscore_hmac_shaX(cose_alg_t hkdf_alg,
+                 coap_bin_const_t *key,
+                 coap_bin_const_t *data,
+                 coap_bin_const_t **hmac) {
   if (!coap_crypto_hmac(hkdf_alg, key, data, hmac)) {
     coap_log(LOG_WARNING, "hmac_shaX: Failed hmac\n");
     return 1;
@@ -73,9 +72,10 @@ oscore_hmac_shaX(cose_alg_t hkdf_alg, coap_bin_const_t *key,
  *        0 OK
  */
 int
-oscore_hkdf_extract(cose_alg_t hkdf_alg, coap_bin_const_t *salt,
-                    coap_bin_const_t *ikm, coap_bin_const_t **hkdf_extract)
-{
+oscore_hkdf_extract(cose_alg_t hkdf_alg,
+                    coap_bin_const_t *salt,
+                    coap_bin_const_t *ikm,
+                    coap_bin_const_t **hkdf_extract) {
   assert(ikm);
   if (salt == NULL || salt->s == NULL) {
     uint8_t zeroes_data[32];
@@ -96,12 +96,16 @@ oscore_hkdf_extract(cose_alg_t hkdf_alg, coap_bin_const_t *salt,
  *        0 OK
  */
 int
-oscore_hkdf_expand(cose_alg_t hkdf_alg, coap_bin_const_t *prk, uint8_t *info,
-                   size_t info_len, uint8_t *okm, size_t okm_len)
-{
+oscore_hkdf_expand(cose_alg_t hkdf_alg,
+                   coap_bin_const_t *prk,
+                   uint8_t *info,
+                   size_t info_len,
+                   uint8_t *okm,
+                   size_t okm_len) {
   size_t N = (okm_len + 32 - 1) / 32; /* ceil(okm_len/32) */
-  uint8_t *aggregate_buffer = coap_malloc(32 + info_len +1);
-  uint8_t *out_buffer = coap_malloc((N+1)*32); /* 32 extra bytes to fit the last block */
+  uint8_t *aggregate_buffer = coap_malloc(32 + info_len + 1);
+  uint8_t *out_buffer =
+      coap_malloc((N + 1) * 32); /* 32 extra bytes to fit the last block */
   size_t i;
   coap_bin_const_t data;
   coap_bin_const_t *hkdf = NULL;
@@ -119,12 +123,12 @@ oscore_hkdf_expand(cose_alg_t hkdf_alg, coap_bin_const_t *prk, uint8_t *info,
 
   /* Compose T(2) -> T(N) */
   memcpy(aggregate_buffer, &(out_buffer[0]), 32);
-  for(i = 1; i < N; i++) {
+  for (i = 1; i < N; i++) {
     memcpy(&(aggregate_buffer[32]), info, info_len);
     aggregate_buffer[32 + info_len] = (uint8_t)(i + 1);
     data.s = aggregate_buffer;
     data.length = 32 + info_len + 1;
-    if (oscore_hmac_shaX(hkdf_alg, prk, &data, &hkdf)  == 1)
+    if (oscore_hmac_shaX(hkdf_alg, prk, &data, &hkdf) == 1)
       return 1;
     memcpy(&out_buffer[i * 32], hkdf->s, hkdf->length);
     coap_delete_bin_const(hkdf);
@@ -141,22 +145,26 @@ oscore_hkdf_expand(cose_alg_t hkdf_alg, coap_bin_const_t *prk, uint8_t *info,
  *        0 OK
  */
 int
-oscore_hkdf(cose_alg_t hkdf_alg, coap_bin_const_t *salt,
-            coap_bin_const_t *ikm, uint8_t *info, size_t info_len,
-            uint8_t *okm, size_t okm_len)
-{
+oscore_hkdf(cose_alg_t hkdf_alg,
+            coap_bin_const_t *salt,
+            coap_bin_const_t *ikm,
+            uint8_t *info,
+            size_t info_len,
+            uint8_t *okm,
+            size_t okm_len) {
   int ret;
   coap_bin_const_t *hkdf_extract = NULL;
   if (oscore_hkdf_extract(hkdf_alg, salt, ikm, &hkdf_extract) == 1)
     return 1;
-  ret = oscore_hkdf_expand(hkdf_alg, hkdf_extract, info, info_len, okm,
-                         okm_len);
+  ret =
+      oscore_hkdf_expand(hkdf_alg, hkdf_extract, info, info_len, okm, okm_len);
   coap_delete_bin_const(hkdf_extract);
   return ret;
 }
 
 #ifdef HAVE_OSCORE_GROUP
-/* Return 0 if key pair generation failure. Key lengths are derived fron ed25519 values. No check is done to ensure that buffers are of the correct length. */
+/* Return 0 if key pair generation failure. Key lengths are derived fron ed25519
+ * values. No check is done to ensure that buffers are of the correct length. */
 
 #if 0
 int
@@ -169,78 +177,15 @@ oscore_edDSA_keypair(cose_alg_t alg, cose_curve_t alg_param,
   }
   ed25519_create_keypair(public_key, private_key, ed25519_seed);
 
-  if (coap_get_log_level() >= COAP_LOG_CIPHERS){
-    coap_log(COAP_LOG_CIPHERS, "Key Pair\n");
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Public Key", public_key);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Private Key", private_key);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Seed", ed25519_seed);
+  if (coap_get_log_level() >= COAP_LOG_OSCORE){
+    coap_log(COAP_LOG_OSCORE, "Key Pair\n");
+    oscore_log_hex_value(COAP_LOG_OSCORE, "Public Key", public_key);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "Private Key", private_key);
+    oscore_log_hex_value(COAP_LOG_OSCORE, "Seed", ed25519_seed);
   }
 
   return 1;
 }
 #endif
 
-/* Return 0 if signing failure. Signatue length otherwise, signature length and key length are derived fron ed25519 values. No check is done to ensure that buffers are of the correct length. */
-
-int
-oscore_edDSA_sign(cose_alg_t alg, cose_curve_t alg_param,
-                  coap_binary_t *signature, coap_bin_const_t *ciphertext,
-                  coap_bin_const_t *private_key, coap_bin_const_t *public_key)
-{
-  if (alg != COSE_Algorithm_EdDSA || alg_param != COSE_curve_Ed25519) {
-    return 0;
-  }
-
-#ifdef HAVE_OPENSSL
-  coap_crypto_sign(alg_param,signature, ciphertext, private_key, public_key);
-#else /* ! HAVE_OPENSSL */
-  ed25519_sign(signature->s, ciphertext->s, ciphertext->length, public_key->s,
-               private_key->s);
-#endif /* ! HAVE_OPENSSL */
-
-  if (coap_get_log_level() >= COAP_LOG_CIPHERS){
-    coap_log(COAP_LOG_CIPHERS, "Sign\n");
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Signature",
-                         (coap_bin_const_t*)signature);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Ciphertext", ciphertext);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Private Key", private_key);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Public Key", public_key);
-  }
-
-  return 1;
-}
-
-/* Return 0 if signing failure. Signatue length otherwise, signature length and key length are derived fron ed25519 values. No check is done to ensure that buffers are of the correct length. */
-
-int
-oscore_edDSA_verify(cose_alg_t alg, cose_curve_t alg_param,
-                    coap_binary_t *signature, coap_bin_const_t *plaintext,
-                    coap_bin_const_t *public_key)
-{
-  int res;
-
-  if(alg != COSE_Algorithm_EdDSA || alg_param != COSE_curve_Ed25519) {
-    return 0;
-  }
-
-  if (coap_get_log_level() >= COAP_LOG_CIPHERS){
-    coap_log(COAP_LOG_CIPHERS, "Verify\n");
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Signature", (coap_bin_const_t*)signature);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Plaintext", plaintext);
-    oscore_log_hex_value(COAP_LOG_CIPHERS, "Public Key", public_key);
-  }
-
-#ifdef HAVE_OPENSSL
-  res = coap_crypto_verify(alg_param, signature, plaintext, public_key);
-#else /* ! HAVE_OPENSSL */
-  res = ed25519_verify(signature->s, plaintext->s, plaintext->length,
-                       public_key->s);
-#endif /* ! HAVE_OPENSSL */
-  return res;
-}
-
 #endif /* HAVE_OSCORE_GROUP */
-
-
-
-

@@ -324,6 +324,47 @@ coap_cancel_observe(coap_session_t *session, coap_binary_t *token,
   }
   return 0;
 }
+
+coap_mid_t
+coap_retransmit_oscore_pdu(coap_session_t *session, coap_pdu_t *pdu)
+{
+  coap_lg_crcv_t *lg_crcv;
+  uint64_t token_match = STATE_TOKEN_BASE(coap_decode_var_bytes8(pdu->token,
+                                                       pdu->token_length));
+  uint8_t ltoken[8];
+  size_t ltoken_len;
+  uint64_t token;
+  const uint8_t *data;
+  size_t data_len;
+  coap_pdu_t *resend_pdu;
+
+  LL_FOREACH(session->lg_crcv, lg_crcv) {
+    if (token_match != STATE_TOKEN_BASE(lg_crcv->state_token) &&
+      !full_match(pdu->token, pdu->token_length,
+                  lg_crcv->app_token->s, lg_crcv->app_token->length)) {
+      /* try out the next one */
+      continue;
+    }
+
+    /* lg_crcv found */
+
+    /* Re-send request with new token */
+    token = STATE_TOKEN_FULL(lg_crcv->state_token,
+                             ++lg_crcv->retry_counter);
+    ltoken_len = coap_encode_var_safe8(ltoken, sizeof(token), token);
+    resend_pdu = coap_pdu_duplicate(&lg_crcv->pdu, session, ltoken_len,
+                                    ltoken, NULL);
+    if (!resend_pdu)
+      goto error;
+    if (coap_get_data(&lg_crcv->pdu, &data_len, &data)) {
+      coap_add_data(resend_pdu, data_len, data);
+    }
+
+    return coap_send_internal(session, resend_pdu);
+  }
+error:
+  return COAP_INVALID_MID;
+}
 #endif /* COAP_CLIENT_SUPPORT */
 
 static int
@@ -1526,8 +1567,7 @@ check_freshness(coap_session_t *session, coap_pdu_t *rcvd, coap_pdu_t *sent,
       if (sent) {
         if (coap_get_data(sent, &data_len, &data))
           have_data = 1;
-      }
-      else if (lg_xmit) {
+      } else if (lg_xmit) {
         sent = &lg_xmit->pdu;
         if (lg_xmit->length) {
           size_t blk_size = (size_t)1 << (lg_xmit->blk_size + 4);
@@ -1537,8 +1577,7 @@ check_freshness(coap_session_t *session, coap_pdu_t *rcvd, coap_pdu_t *sent,
           data_len = (lg_xmit->length - offset) > blk_size ? blk_size :
                                                    lg_xmit->length - offset;
         }
-      }
-      else /* lg_crcv */ {
+      } else /* lg_crcv */ {
         sent = &lg_crcv->pdu;
         if (coap_get_data(sent, &data_len, &data))
           have_data = 1;
@@ -1546,8 +1585,7 @@ check_freshness(coap_session_t *session, coap_pdu_t *rcvd, coap_pdu_t *sent,
       if (lg_xmit) {
         token = STATE_TOKEN_FULL(lg_xmit->b.b1.state_token,
                                  ++lg_xmit->b.b1.count);
-      }
-      else {
+      } else {
         token = STATE_TOKEN_FULL(lg_crcv->state_token,
                                  ++lg_crcv->retry_counter);
       }
@@ -1570,9 +1608,9 @@ check_freshness(coap_session_t *session, coap_pdu_t *rcvd, coap_pdu_t *sent,
     else {
       /* Need to save ECHO value to add to next reansmission */
 no_sent:
-      session->echo_len = coap_opt_length(opt);
-      session->echo_send = 1;
-      memcpy(session->echo, coap_opt_value(opt), session->echo_len);
+      coap_delete_bin_const(session->echo);
+      session->echo = coap_new_bin_const(coap_opt_value(opt),
+                                         coap_opt_length(opt));
     }
   }
   return 0;
@@ -1585,9 +1623,9 @@ track_echo(coap_session_t *session, coap_pdu_t *rcvd)
   coap_opt_t *opt = coap_check_option(rcvd, COAP_OPTION_ECHO, &opt_iter);
 
   if (opt) {
-    session->echo_len = coap_opt_length(opt);
-    session->echo_send = 1;
-    memcpy(session->echo, coap_opt_value(opt), session->echo_len);
+    coap_delete_bin_const(session->echo);
+    session->echo = coap_new_bin_const(coap_opt_value(opt),
+                                         coap_opt_length(opt));
   }
 }
 
@@ -1697,8 +1735,7 @@ coap_handle_response_send_block(coap_session_t *session, coap_pdu_t *sent,
           goto fail_body;
         return 1;
       }
-    }
-    else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
+    } else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
       if (check_freshness(session, rcvd, sent, p, NULL))
         return 1;
     }
@@ -2072,8 +2109,7 @@ block_mode:
           goto call_app_handler;
         }
       }
-    }
-    else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
+    } else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
 #ifdef HAVE_OSCORE
       if (check_freshness(session, rcvd,
                           (session->oscore_encryption == 0) ? sent : NULL,
@@ -2101,8 +2137,7 @@ fail_resp:
         coap_log(LOG_DEBUG, "** %s: large body receive internal issue\n",
                  coap_session_str(session));
       }
-    }
-    else if (COAP_RESPONSE_CLASS(rcvd->code) == 2) {
+    } else if (COAP_RESPONSE_CLASS(rcvd->code) == 2) {
       if (coap_get_block(rcvd, COAP_OPTION_BLOCK2, &block)) {
         have_block = 1;
         block_opt = COAP_OPTION_BLOCK2;
@@ -2135,8 +2170,7 @@ fail_resp:
         }
       }
       track_echo(session, rcvd);
-    }
-    else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
+    } else if (rcvd->code == COAP_RESPONSE_CODE(401)) {
       coap_lg_crcv_t *lg_crcv = coap_block_new_lg_crcv(session, sent);
 
       if (lg_crcv) {

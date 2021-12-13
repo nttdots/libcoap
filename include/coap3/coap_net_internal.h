@@ -89,7 +89,7 @@ struct coap_context_t {
                                    *   context, otherwise 0. */
 #endif /* WITH_LWIP */
 #ifdef HAVE_OSCORE
-  struct oscore_ctx_t *osc_ctx; /**< oscore context  */
+  struct oscore_ctx_t *p_osc_ctx; /**< primary oscore context  */
 #endif /* HAVE_OSCORE */
 
 #if COAP_CLIENT_SUPPORT

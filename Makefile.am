@@ -58,13 +58,6 @@ EXTRA_DIST = \
   include/coap$(LIBCOAP_API_VERSION)/lwippools.h \
   include/coap$(LIBCOAP_API_VERSION)/uthash.h \
   include/coap$(LIBCOAP_API_VERSION)/utlist.h \
-  include/oscore_group_crypto/ed25519.h \
-  include/oscore_group_crypto/edDSA_fe.h \
-  include/oscore_group_crypto/edDSA_fixedint.h \
-  include/oscore_group_crypto/edDSA_ge.h \
-  include/oscore_group_crypto/edDSA_precomp_data.h \
-  include/oscore_group_crypto/edDSA_sc.h \
-  include/oscore_group_crypto/sha512.h \
   include/oscore/oscore_cbor.h \
   include/oscore/oscore_context.h \
   include/oscore/oscore_cose.h \
@@ -106,22 +99,6 @@ EXTRA_DIST += \
   src/oscore/oscore_crypto.c
 
 endif # !HAVE_OSCORE
-
-# This is a mirror of files depending on HAVE_OSCORE_GROUP included in src as per
-# libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES
-if !HAVE_OSCORE_GROUP
-EXTRA_DIST += \
-  src/oscore_group_crypto/edDSA_add_scalar.c \
-  src/oscore_group_crypto/edDSA_fe.c \
-  src/oscore_group_crypto/edDSA_ge.c \
-  src/oscore_group_crypto/edDSA_key_exchange.c \
-  src/oscore_group_crypto/edDSA_keypair.c \
-  src/oscore_group_crypto/edDSA_sc.c \
-  src/oscore_group_crypto/edDSA_sign.c \
-  src/oscore_group_crypto/edDSA_verify.c \
-  src/oscore_group_crypto/sha512.c
-
-endif # !HAVE_OSCORE_GROUP
 
 # This is a mirror of files depending on HAVE_OSCORE_EDHOC included in src as per
 # libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES
@@ -192,20 +169,6 @@ libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES += \
   src/oscore/oscore_crypto.c
 
 endif # HAVE_OSCORE
-
-if HAVE_OSCORE_GROUP
-libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES += \
-  src/oscore_group_crypto/edDSA_add_scalar.c \
-  src/oscore_group_crypto/edDSA_fe.c \
-  src/oscore_group_crypto/edDSA_ge.c \
-  src/oscore_group_crypto/edDSA_key_exchange.c \
-  src/oscore_group_crypto/edDSA_keypair.c \
-  src/oscore_group_crypto/edDSA_sc.c \
-  src/oscore_group_crypto/edDSA_sign.c \
-  src/oscore_group_crypto/edDSA_verify.c \
-  src/oscore_group_crypto/sha512.c
-
-endif # HAVE_OSCORE_GROUP
 
 if HAVE_OSCORE_EDHOC
 libcoap_@LIBCOAP_NAME_SUFFIX@_la_SOURCES += \

@@ -30,7 +30,8 @@
 
 /**
  * @file oscore_crypto.h
- * @brief An implementation of the Hash Based Key Derivation Function (RFC) and wrappers for AES-CCM*.
+ * @brief An implementation of the Hash Based Key Derivation Function (RFC) and
+ * wrappers for AES-CCM*.
  *
  * \author
  *      Martin Gunnarsson  <martin.gunnarsson@ri.se>
@@ -53,14 +54,13 @@
  * @{
  */
 
-#define HKDF_INFO_MAXLEN 25
+#define HKDF_INFO_MAXLEN   25
 #define HKDF_OUTPUT_MAXLEN 25
-#define AES_CCM_TAG 8
+#define AES_CCM_TAG        8
 
 /* Plaintext Maxlen and Tag Maxlen is quite generous. */
 #define AEAD_PLAINTEXT_MAXLEN COAP_MAX_CHUNK_SIZE
-#define AEAD_TAG_MAXLEN COAP_MAX_CHUNK_SIZE
-
+#define AEAD_TAG_MAXLEN       COAP_MAX_CHUNK_SIZE
 
 #if 0
 #include <mbedtls/pk.h>
@@ -103,34 +103,30 @@ oscore_mbedtls_ecp_sign(int8_t cose_alg, int8_t alg_param, uint8_t *signature,
 size_t *signature_len, uint8_t *payload, size_t payload_len, mbedtls_pk_context *mbed_ctx);
 #endif
 
-int
-oscore_hmac_shaX(cose_alg_t alg, coap_bin_const_t *key,
-                 coap_bin_const_t *data, coap_bin_const_t **hmac);
+int oscore_hmac_shaX(cose_alg_t alg,
+                     coap_bin_const_t *key,
+                     coap_bin_const_t *data,
+                     coap_bin_const_t **hmac);
 
-int
-oscore_hkdf_extract(cose_alg_t alg, coap_bin_const_t *salt,
-                    coap_bin_const_t *ikm, coap_bin_const_t **hkdf_extract);
+int oscore_hkdf_extract(cose_alg_t alg,
+                        coap_bin_const_t *salt,
+                        coap_bin_const_t *ikm,
+                        coap_bin_const_t **hkdf_extract);
 
-int
-oscore_hkdf_expand(cose_alg_t alg, coap_bin_const_t *prk, uint8_t *info,
-                   size_t info_len, uint8_t *okm, size_t okm_len);
+int oscore_hkdf_expand(cose_alg_t alg,
+                       coap_bin_const_t *prk,
+                       uint8_t *info,
+                       size_t info_len,
+                       uint8_t *okm,
+                       size_t okm_len);
 
-/* Return 0 if signing failure. Signatue length otherwise, signature length and key length are derived fron ed25519 values. No check is done to ensure that buffers are of the correct length. */
-
-int
-oscore_edDSA_sign(cose_alg_t alg, cose_curve_t alg_param,
-                  coap_binary_t *signature, coap_bin_const_t *ciphertext,
-                  coap_bin_const_t *seed, coap_bin_const_t *public_key);
-
-/* Return 0 if signing failure. Signatue length otherwise, signature length and key length are derived fron ed25519 values. No check is done to ensure that buffers are of the correct length. */
-
-int
-oscore_edDSA_verify(cose_alg_t alg, cose_curve_t alg_param,
-                    coap_binary_t *signature, coap_bin_const_t *plaintext,
-                    coap_bin_const_t *public_key);
-
-int oscore_hkdf(cose_alg_t alg, coap_bin_const_t *salt, coap_bin_const_t *ikm,
-               uint8_t *info, size_t info_len, uint8_t *okm, size_t okm_len);
+int oscore_hkdf(cose_alg_t alg,
+                coap_bin_const_t *salt,
+                coap_bin_const_t *ikm,
+                uint8_t *info,
+                size_t info_len,
+                uint8_t *okm,
+                size_t okm_len);
 
 /** @} */
 

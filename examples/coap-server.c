@@ -1628,6 +1628,13 @@ proxy_event_handler(coap_session_t *session,
   case COAP_EVENT_DTLS_CLOSED:
   case COAP_EVENT_TCP_CLOSED:
   case COAP_EVENT_SESSION_CLOSED:
+  case COAP_EVENT_OSCORE_DECRYPTION_FAILURE:
+  case COAP_EVENT_OSCORE_NOT_ENABLED:
+  case COAP_EVENT_OSCORE_NO_PROTECTED_PAYLOAD:
+  case COAP_EVENT_OSCORE_NO_SECURITY:
+  case COAP_EVENT_OSCORE_INTERNAL_ERROR:
+  case COAP_EVENT_OSCORE_DECODE_ERROR:
+  case COAP_EVENT_OSCORE_SIGNATURE_FAILURE:
     /* Need to remove any proxy associations */
     remove_proxy_association(session, 0);
     break;
@@ -2502,7 +2509,10 @@ get_oscore_conf(coap_context_t *context)
         return NULL;
       }
     }
-    fscanf(oscore_seq_num_fp, "%ju", &start_seq_num);
+    if (fscanf(oscore_seq_num_fp, "%ju", &start_seq_num) == 0) {
+      /* Must be empty */
+      start_seq_num = 0;
+    }
   }
   oscore_conf = coap_new_oscore_conf(file_mem,
                                      oscore_save_seq_num,

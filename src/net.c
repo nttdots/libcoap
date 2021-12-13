@@ -711,15 +711,11 @@ coap_option_check_critical(coap_session_t *session,
       case COAP_OPTION_BLOCK1:
         break;
       case COAP_OPTION_OSCORE:
-        /* Valid critical if doing OSCORE or are a proxy */
+        /* Valid critical if doing OSCORE */
 #if HAVE_OSCORE
-        if (ctx->osc_ctx)
+        if (ctx->p_osc_ctx)
           break;
 #endif /* HAVE_OSCORE */
-#if COAP_SERVER_SUPPORT
-        if (ctx->proxy_uri_resource)
-          break;
-#endif /* COAP_SERVER_SUPPORT */
         /* Fall Through */
       default:
         if (coap_option_filter_get(&ctx->known_options, opt_iter.number) <= 0) {
@@ -1060,6 +1056,7 @@ token_match(const uint8_t *a, size_t alen,
 }
 
 #if HAVE_OSCORE_EDHOC
+#if COAP_CLIENT_SUPPORT
 static coap_mid_t
 coap_start_edhoc(coap_session_t *session, coap_pdu_t *pdu)
 {
@@ -1150,8 +1147,7 @@ coap_start_edhoc(coap_session_t *session, coap_pdu_t *pdu)
       }
       if (result <= timeout_ms) {
         timeout_ms -= result;
-      }
-      else {
+      } else {
         if (*(&session->doing_first) == 1 && ref > session->ref) {
           /* Timeout failure of some sort with first request */
         }
@@ -1169,6 +1165,7 @@ edhoc_fail:
   coap_session_release(session);
   return COAP_INVALID_MID;
 }
+#endif /* HAVE_CLIENT_SUPPORT */
 #endif /* HAVE_OSCORE_EDHOC */
 
 coap_mid_t
@@ -1193,7 +1190,7 @@ coap_send(coap_session_t *session, coap_pdu_t *pdu) {
   if (session->type == COAP_SESSION_TYPE_CLIENT && session->doing_first) {
 
 #if HAVE_OSCORE_EDHOC
-    if (session->recipient_ctx != NULL) {
+    if (session->edhoc_ctx != NULL) {
       /* Initial EDHOC key exchange set up */
       if (coap_start_edhoc(session, pdu) == COAP_INVALID_MID) {
         coap_delete_pdu(pdu);
@@ -1454,10 +1451,12 @@ coap_send_internal(coap_session_t *session, coap_pdu_t *pdu) {
     }
   }
 
-  if (session->echo_send) {
-    if (coap_insert_option(pdu, COAP_OPTION_ECHO, session->echo_len,
-                            session->echo))
-      session->echo_send = 0;
+  if (session->echo) {
+    if (!coap_insert_option(pdu, COAP_OPTION_ECHO, session->echo->length,
+                            session->echo->s))
+      goto error;
+    coap_delete_bin_const(session->echo);
+    session->echo = NULL;
   }
 
   if (!coap_pdu_encode_header(pdu, session->proto)) {
@@ -1489,7 +1488,8 @@ coap_send_internal(coap_session_t *session, coap_pdu_t *pdu) {
   if (session->oscore_encryption &&
       !(pdu->type == COAP_MESSAGE_ACK && pdu->code == COAP_EMPTY_CODE)) {
     /* Refactor PDU as appropriate RFC8613 */
-    coap_pdu_t *osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, 0);
+    coap_pdu_t *osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL,
+                                                        NULL, 0);
 
     if (osc_pdu == NULL) {
       coap_log(LOG_WARNING, "OSCORE: PDU could not be encrypted\n");
@@ -1498,8 +1498,7 @@ coap_send_internal(coap_session_t *session, coap_pdu_t *pdu) {
     bytes_written = coap_send_pdu(session, osc_pdu, NULL);
     coap_delete_pdu(pdu);
     pdu = osc_pdu;
-  }
-  else
+  } else
 #endif /* HAVE_OSCORE */
     bytes_written = coap_send_pdu(session, pdu, NULL);
 
@@ -3263,7 +3262,7 @@ coap_dispatch(coap_context_t *context, coap_session_t *session,
       decrypt = 0;
 
 #if COAP_SERVER_SUPPORT
-    if (COAP_PDU_IS_REQUEST(pdu) &&
+    if (decrypt && COAP_PDU_IS_REQUEST(pdu) &&
         coap_check_option(pdu, COAP_OPTION_PROXY_SCHEME, &opt_iter) != NULL &&
         (opt = coap_check_option(pdu, COAP_OPTION_URI_HOST, &opt_iter))
                                                                    != NULL) {
@@ -3272,7 +3271,7 @@ coap_dispatch(coap_context_t *context, coap_session_t *session,
       uri.host.length = coap_opt_length(opt);
       uri.host.s = coap_opt_value(opt);
       resource = context->proxy_uri_resource;
-      if (uri.host.length && resource->proxy_name_count &&
+      if (uri.host.length && resource && resource->proxy_name_count &&
           resource->proxy_name_list) {
         size_t i;
         for (i = 0; i < resource->proxy_name_count; i++) {
@@ -3288,8 +3287,10 @@ coap_dispatch(coap_context_t *context, coap_session_t *session,
     }
 #endif /* COAP_SERVER_SUPPORT */
     if (decrypt) {
+      /* find message id in sendqueue to stop retransmission and get sent */
+      coap_remove_from_queue(&context->sendqueue, session, pdu->mid, &sent);
       if ((dec_pdu = coap_oscore_decrypt_pdu(session, pdu)) == NULL) {
-        if (session->recipient_ctx == 0 ||
+        if (session->recipient_ctx == NULL ||
             session->recipient_ctx->initial_state == 0) {
           coap_log(LOG_WARNING, "OSCORE: PDU could not be decrypted\n");
         }

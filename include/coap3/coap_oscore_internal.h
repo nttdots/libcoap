@@ -16,7 +16,6 @@
  * @brief CoAP OSCORE internal information
  */
 
-
 #ifndef COAP_OSCORE_INTERNAL_H_
 #define COAP_OSCORE_INTERNAL_H_
 
@@ -33,56 +32,65 @@
  * The structure used to hold the configuration information
  */
 struct coap_oscore_conf_t {
-  coap_bin_const_t *master_secret;/**< Common Master Secret */
-  coap_bin_const_t *master_salt;  /**< Common Master Salt */
-  coap_bin_const_t *sender_id;    /**< Sender ID (i.e. local our id) */
-  coap_bin_const_t *id_context;   /**< Common ID context */
-  coap_bin_const_t **recipient_id;/**< Recipient ID (i.e. remote peer id)
-                                       Array of recipient_id */
-  uint32_t recipient_id_count;    /**< Number of recipient_id entries */
-  uint32_t replay_window;         /**< Replay window size
-                                       Use COAP_OSCORE_DEFAULT_REPLAY_WINDOW */
-  uint32_t ssn_freq;              /**< Sender Seq Num update frequency */
-  cose_alg_t aead_alg;            /**< Set to one of COSE_Algorithm_AES* */
-  cose_alg_t hkdf_alg;            /**< Set to one of COSE_Algorithm_MHAC* */
-  oscore_mode_t mode;             /**< Set to one of OSCORE_MODE_* */
-  cose_alg_t hkdf;                /**< Set to one of COSE_Algorithm_HMAC* */
-  int rfc8613_b_2;                /**< 1 if rfc8613 B.2 protocol else 0 */
+  coap_bin_const_t *master_secret; /**< Common Master Secret */
+  coap_bin_const_t *master_salt;   /**< Common Master Salt */
+  coap_bin_const_t *sender_id;     /**< Sender ID (i.e. local our id) */
+  coap_bin_const_t *id_context;    /**< Common ID context */
+  coap_bin_const_t **recipient_id; /**< Recipient ID (i.e. remote peer id)
+                                        Array of recipient_id */
+  uint32_t recipient_id_count;     /**< Number of recipient_id entries */
+  uint32_t replay_window;          /**< Replay window size
+                                        Use COAP_OSCORE_DEFAULT_REPLAY_WINDOW */
+  uint32_t ssn_freq;               /**< Sender Seq Num update frequency */
+  cose_alg_t aead_alg;             /**< Set to one of COSE_Algorithm_AES* */
+  cose_alg_t hkdf_alg;             /**< Set to one of COSE_Algorithm_MHAC* */
+  uint32_t rfc8613_b_1_2;          /**< 1 if rfc8613 B.1.2 enabled else 0 */
+  uint32_t rfc8613_b_2;            /**< 1 if rfc8613 B.2 protocol else 0 */
 
+#if HAVE_OSCORE_GROUP
   /* Group */
-  int group_mode;                 /**< 1 if group mode else 0 */
-  cose_alg_t sign_enc_alg;        /**< Set to one of COSE_Algorithm_AES* */
-  cose_alg_t sign_alg;            /**< Set to one of COSE_Algorithm_AES* */
-  int pairwise_mode;              /**< 1 if pairwise mode else 0 */
-  cose_alg_t alg;                 /**< Set to one of COSE_Algorithm_AES* */
-  cose_alg_t ecdh_alg;            /**< Set to one of COSE_Algorithm_AES* */
-  coap_bin_const_t *gm_public_key;  /**< Group Manager Public Key */
-  coap_bin_const_t **recipient_public_key;  /**< Recipient Public Key (i.e.
-                                                 remote peer Key
-                                             Array of recipient_public_key */
-  uint32_t recipient_public_key_count;  /**< Number of recipient_public_key
-                                             entries */
-  /* Group and Edhoc */
-  coap_bin_const_t *sender_public_key;  /**< Sender Public Key (i.e. local our
-                                             Key) */
-  coap_bin_const_t *sender_private_key; /**< Private Key for
-                                             sender_public_key */
+  int group_mode;          /**< 1 if group mode else 0 */
+  cose_alg_t sign_enc_alg; /**< Set to one of COSE_Algorithm_AES* */
+  cose_alg_t sign_alg;     /**< Set to one of COSE_Algorithm_E* */
+  cose_curve_t sign_curve; /**< Set to one of COSE_curve_* */
+  int pairwise_mode;       /**< 1 if pairwise mode else 0 */
+  cose_alg_t ecdh_alg;     /**< Set to one of COSE_Algorithm_AES* */
+  coap_crypto_pub_key_t *gm_public_key;         /**< Group Manager Public Key */
+  coap_crypto_pub_key_t **recipient_public_key; /**< Recipient Public Key
+                                                       (i.e. remote peer Key)
+                                                       Array of
+                                                       recipient_public_key */
+  uint32_t recipient_public_key_count;       /**< Number of recipient_public_key
+                                                  entries */
+  coap_crypto_pub_key_t *sender_public_key;  /**< Sender Public Key (i.e.
+                                                    local our Key) */
+  coap_crypto_pri_key_t *sender_private_key; /**< Private Key for
+                                                    sender_public_key */
+#endif                                       /* HAVE_OSCORE_GROUP */
 
+#if HAVE_OSCORE_EDHOC
   /* Edhoc */
-  int use_edhoc;                    /**< 1 if EDHOC is to be used, else 0 */
-  edhoc_method_t edhoc_method;      /**< Method to use for EDHOC */
-  int *edhoc_suite;                 /**< Set of valid EDHOC suites */
-  uint32_t edhoc_suite_cnt;         /**< Number of EDHOC suite entries */
-  cose_alg_t edhoc_alg;             /**< Set to one of COSE_Algorithm_AES* */
-  coap_bin_const_t *test_public_key;  /**< Test EDHOC Static DH Public Key */
-  coap_bin_const_t *test_private_key; /**< Test EDHOC Static DH Private Key */
-  coap_bin_const_t *edhoc_dh_subject; /**< EDHOC Static DH Subject */
+  int use_edhoc;                       /**< 1 if EDHOC is to be used, else 0 */
+  edhoc_method_t edhoc_method;         /**< Method to use for EDHOC */
+  int *edhoc_suite;                    /**< Set of valid EDHOC suites */
+  uint32_t edhoc_suite_cnt;            /**< Number of EDHOC suite entries */
+  cose_alg_t edhoc_alg;                /**< Set to one of COSE_Algorithm_AES* */
+  coap_bin_const_t *edhoc_dh_subject;  /**< EDHOC Static DH Subject */
+  coap_bin_const_t *test_s_public_key; /**< Test EDHOC I Static DH Public
+                                            Key */
+  coap_bin_const_t *test_s_private_key; /**< Test EDHOC I Static DH Private
+                                             Key */
+  coap_bin_const_t *test_r_public_key;  /**< Test EDHOC X Static DH Public
+                                             Key */
+  coap_bin_const_t *test_r_private_key; /**< Test EDHOC X Static DH Private
+                                             Key */
+#endif                                  /* HAVE_OSCORE_EDHOC */
 
   /* SSN handling (not in oscore_config[]) */
   coap_oscore_save_seq_num_t save_seq_num_func; /**< Called every seq num
                                                      change */
-  void *save_seq_num_func_param;    /**< Passed to save_seq_num_func() */
-  uint64_t start_seq_num;           /**< Used for ssn_freq updating */
+  void *save_seq_num_func_param; /**< Passed to save_seq_num_func() */
+  uint64_t start_seq_num;        /**< Used for ssn_freq updating */
 };
 
 /**
@@ -94,6 +102,7 @@ struct coap_oscore_conf_t {
  *                specified @p pdu.
  * @param pdu     The PDU to encrypt if necessary.
  * @param echo_value Optional Echo option to add in or NULL.
+ * @param kid_context Optional kid context to use or NULL.
  * @param send_partial_iv @c 1 if partial_iv is always to be added, else @c 0
  *                        if not to be added for a response if not required..
  *
@@ -102,6 +111,7 @@ struct coap_oscore_conf_t {
 coap_pdu_t *coap_oscore_new_pdu_encrypted(coap_session_t *session,
                                           coap_pdu_t *pdu,
                                           coap_bin_const_t *echo_value,
+                                          coap_bin_const_t *kid_context,
                                           int send_partial_iv);
 
 /**
@@ -149,8 +159,8 @@ size_t coap_oscore_overhead(coap_session_t *session, coap_pdu_t *pdu);
  *
  * @return @c 1 success, else @c 0 failure.
  */
-int
-coap_oscore_initiate(coap_session_t *session, coap_oscore_conf_t *oscore_conf);
+int coap_oscore_initiate(coap_session_t *session,
+                         coap_oscore_conf_t *oscore_conf);
 
 /** @} */
 

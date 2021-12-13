@@ -66,13 +66,11 @@ int coap_oscore_edhoc_is_supported(void);
  * @return A new CoAP session or NULL if failed. Call coap_session_release()
  *         to free.
  */
-coap_session_t *coap_new_client_session_oscore(
-  coap_context_t *ctx,
-  const coap_address_t *local_if,
-  const coap_address_t *server,
-  coap_proto_t proto,
-  coap_oscore_conf_t *oscore_conf
-);
+coap_session_t *coap_new_client_session_oscore(coap_context_t *ctx,
+                                               const coap_address_t *local_if,
+                                               const coap_address_t *server,
+                                               coap_proto_t proto,
+                                               coap_oscore_conf_t *oscore_conf);
 
 /**
  * Creates a new client session to the designated server with PSK credentials
@@ -93,14 +91,13 @@ coap_session_t *coap_new_client_session_oscore(
  * @return A new CoAP session or NULL if failed. Call coap_session_release()
  *         to free.
  */
-coap_session_t *coap_new_client_session_oscore_psk(
-  coap_context_t *ctx,
-  const coap_address_t *local_if,
-  const coap_address_t *server,
-  coap_proto_t proto,
-  coap_dtls_cpsk_t *psk_data,
-  coap_oscore_conf_t *oscore_conf
-);
+coap_session_t *
+coap_new_client_session_oscore_psk(coap_context_t *ctx,
+                                   const coap_address_t *local_if,
+                                   const coap_address_t *server,
+                                   coap_proto_t proto,
+                                   coap_dtls_cpsk_t *psk_data,
+                                   coap_oscore_conf_t *oscore_conf);
 
 /**
  * Creates a new client session to the designated server with PKI credentials
@@ -121,14 +118,13 @@ coap_session_t *coap_new_client_session_oscore_psk(
  * @return A new CoAP session or NULL if failed. Call coap_session_release()
  *         to free.
  */
-coap_session_t *coap_new_client_session_oscore_pki(
-  coap_context_t *ctx,
-  const coap_address_t *local_if,
-  const coap_address_t *server,
-  coap_proto_t proto,
-  coap_dtls_pki_t *pki_data,
-  coap_oscore_conf_t *oscore_conf
-);
+coap_session_t *
+coap_new_client_session_oscore_pki(coap_context_t *ctx,
+                                   const coap_address_t *local_if,
+                                   const coap_address_t *server,
+                                   coap_proto_t proto,
+                                   coap_dtls_pki_t *pki_data,
+                                   coap_oscore_conf_t *oscore_conf);
 
 /**
  * Set the context's default OSCORE configuration for a server.
@@ -170,10 +166,11 @@ typedef int (*coap_oscore_save_seq_num_t)(uint64_t sender_seq_num, void *param);
  *         off with coap_delete_oscore_conf() when no longer required,
  *         otherwise it is freed off when coap_free_context() is called.
  */
-coap_oscore_conf_t *coap_new_oscore_conf(coap_str_const_t conf_mem,
-                                  coap_oscore_save_seq_num_t save_seq_num_func,
-                                  void *save_seq_num_func_param,
-                                  uint64_t start_seq_num);
+coap_oscore_conf_t *
+coap_new_oscore_conf(coap_str_const_t conf_mem,
+                     coap_oscore_save_seq_num_t save_seq_num_func,
+                     void *save_seq_num_func_param,
+                     uint64_t start_seq_num);
 
 /**
  * Release all the information associated with the OSCORE configuration.
@@ -186,6 +183,8 @@ int coap_delete_oscore_conf(coap_oscore_conf_t *oscore_conf);
 
 /**
  * Add in the specific Recipient ID into the OSCORE context (server only).
+ * Note: This is only added to the OSCORE context as first defined by
+ * coap_new_client_session_oscore*() or coap_context_oscore_server().
  *
  * @param context The CoAP  context to add the OSCORE recipient_id to.
  * @param recipient_id The Recipient ID to add.
@@ -198,6 +197,8 @@ int coap_new_oscore_recipient(coap_context_t *context,
 /**
  * Release all the information associated for the specific Recipient ID
  * (and hence and stop any further OSCORE protection for this Recipient).
+ * Note: This is only removed from the OSCORE context as first defined by
+ * coap_new_client_session_oscore*() or coap_context_oscore_server().
  *
  * @param context The CoAP  context holding the OSCORE recipient_id to.
  * @param recipient_id The Recipient ID to remove.

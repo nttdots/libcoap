@@ -132,6 +132,7 @@ struct coap_session_t {
   unsigned int dtls_timeout_count;      /**< dtls setup retry counter */
   int dtls_event;                       /**< Tracking any (D)TLS events on this
                                              session */
+  uint32_t tx_rtag;               /**< Next Request-Tag number to use */
   uint8_t block_mode;             /**< Zero or more COAP_BLOCK_ or'd options */
   uint8_t doing_first;            /**< Set if doing client's first request */
   uint8_t proxy_session;          /**< Set if this is an ongoing proxy session */
@@ -141,15 +142,13 @@ struct coap_session_t {
                                               for session */
   oscore_association_t *associations; /**< OSCORE set of response
                                            associations */
+  uint64_t oscore_r2;             /**< R2 for RFC8613 Appendix B.2 */
 #endif /* HAVE_OSCORE */
 #ifdef HAVE_OSCORE_EDHOC
   edhoc_ctx_t *edhoc_ctx;         /**< EDHOC startup information */
 #endif /* HAVE_OSCORE_EDHOC */
   uint64_t tx_token;              /**< Next token number to use */
-  uint64_t tx_rtag;               /**< Next Request-Tag number to use */
-  uint8_t echo[8];                /**< Echo value to send with next request */
-  uint32_t echo_len;              /**< Echo value length */
-  int echo_send;                  /**< Send Echo in next request */
+  coap_bin_const_t *echo;         /**< Echo value to send with next request */
 };
 
 #if COAP_SERVER_SUPPORT

@@ -25,6 +25,7 @@
 #include "oscore/oscore_crypto.h"
 #include "oscore/oscore_context.h"
 
+#if 0
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/asn1.h>
 #include <mbedtls/ecp.h>
@@ -37,31 +38,33 @@
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/error.h>
 #include <mbedtls/config.h>
+#endif
 
-#define COSE_UNDEFINED         6666
-#define COSE_x5t               34
-#define COSE_x5chain           33
+#define COSE_UNDEFINED 6666
+#define COSE_x5t       34
+#define COSE_x5chain   33
 
 /* transported certificates with public key */
 /* Initiator certificate stored at Receiver */
-#define X509_initiator       "./certificates/transport/registrar/client.der"
+#define X509_initiator "./certificates/transport/registrar/client.der"
 /* Receiver certificate stored at Initiator */
-#define X509_receiver        "./certificates/transport/pledge/server.der"
+#define X509_receiver "./certificates/transport/pledge/server.der"
 
 /* max length of keys and nonces for storage*/
-#define MAX_NONCE_LEN               16
-#define MAX_HASH_LEN                64
-#define MAX_TAG_LEN                 16
-#define MAX_SIGNATURE_LEN           100
-#define MAX_KEY_LEN                 64
-#define SALT_LEN                    8
+#define MAX_NONCE_LEN     16
+#define MAX_HASH_LEN      64
+#define MAX_TAG_LEN       16
+#define MAX_SIGNATURE_LEN 100
+#define MAX_KEY_LEN       64
+#define SALT_LEN          8
 
-#define C_X_offset              24  /* substraction factor of single byte identifier */
+#define C_X_offset 24 /* substraction factor of single byte identifier */
 
-#define CRT_BUF_SIZE            1024 /* for mbedtls error string */
+#define CRT_BUF_SIZE 1024 /* for mbedtls error string */
 
 /* variables used for edhoc communication  */
 
+#if 0
 /* structures used for ephemeral diffie hellman mbedtls contexts */
 typedef struct edhoc_context_t {
 mbedtls_ctr_drbg_context  *ctr_drbg;
@@ -84,80 +87,90 @@ static mbedtls_ecp_point           ecdh_srv_pub;
 static mbedtls_mpi                 ecdh_srv_priv;
 static mbedtls_mpi                 ecdh_srv_shar;
 static mbedtls_entropy_context     ecdh_srv_entr;
+#endif
+#if 0
 static edhoc_context_t edhoc_cli_ctx =
     {.ctr_drbg = &ecdh_cli_drbg, .grp = &ecdh_cli_grp, .pub = &ecdh_cli_pub, .priv = &ecdh_cli_priv, .shar = &ecdh_cli_shar, .entropy = &ecdh_cli_entr};
 static edhoc_context_t edhoc_srv_ctx =
     {.ctr_drbg = &ecdh_srv_drbg, .grp = &ecdh_srv_grp, .pub = &ecdh_srv_pub, .priv = &ecdh_srv_priv, .shar = &ecdh_srv_shar, .entropy = &ecdh_srv_entr};
+#endif
 
 /* structure for edhoc suites */
-#define EDHOC_MAX_SUITE       4
+#define EDHOC_MAX_SUITE 4
 
 typedef struct edhoc_suite_t {
-   int16_t suite_no;
-   cose_alg_t aead_alg;
-   cose_alg_t hash_alg;
-   cose_alg_t hkdf_alg;
-   int16_t mac_len;            /* Static DH */
-   cose_curve_t ecdh_curve;
-   cose_alg_t sign_alg;
-   cose_curve_t sign_curve;
-   cose_alg_t app_aead;
-   cose_alg_t app_hash;
+  int16_t suite_no;
+  cose_alg_t aead_alg;
+  cose_alg_t hash_alg;
+  int16_t mac_len; /* Static DH */
+  cose_curve_t ecdh_curve;
+  cose_alg_t sign_alg;
+  cose_alg_t app_aead;
+  cose_alg_t app_hash;
+  /* Additional info */
+  cose_alg_t hkdf_alg;
+  cose_curve_t sign_curve;
 } edhoc_suite_t;
 
 static edhoc_suite_t supported_cipher_suites[EDHOC_MAX_SUITE] = {
-  /* suite 0 */
-  { 0,
-    COSE_Algorithm_AES_CCM_16_64_128,
-    COSE_Algorithm_SHA_256_256,
-    COSE_Algorithm_HMAC256_256,
-    8,
-    COSE_curve_X25519,
-    COSE_Algorithm_EdDSA,
-    COSE_curve_Ed25519,
-    COSE_Algorithm_AES_CCM_16_64_128,
-    COSE_Algorithm_SHA_256_256
-  },
-  /* suite 1 */
-  { 1,
-    COSE_Algorithm_AES_CCM_16_128_128,
-    COSE_Algorithm_SHA_256_256,
-    COSE_Algorithm_HMAC256_256,
-    16,
-    COSE_curve_X25519,
-    COSE_Algorithm_EdDSA,
-    COSE_curve_Ed25519,
-    COSE_Algorithm_AES_CCM_16_64_128,
-    COSE_Algorithm_SHA_256_256
-  },
-  /* suite 2 */
-  { 2,
-    COSE_Algorithm_AES_CCM_16_64_128,
-    COSE_Algorithm_SHA_256_256,
-    COSE_Algorithm_HMAC256_256,
-    8,
-    COSE_curve_P_256,
-    COSE_Algorithm_ES256,
-    COSE_curve_P_256,
-    COSE_Algorithm_AES_CCM_16_64_128,
-    COSE_Algorithm_SHA_256_256
-  },
-  /* suite 3 */
-  { 3,
-    COSE_Algorithm_AES_CCM_16_128_128,
-    COSE_Algorithm_SHA_256_256,
-    COSE_Algorithm_HMAC256_256,
-    16,
-    COSE_curve_P_256,
-    COSE_Algorithm_ES256,
-    COSE_curve_P_256,
-    COSE_Algorithm_AES_CCM_16_64_128,
-    COSE_Algorithm_SHA_256_256
-  }
-};
+    /* suite 0 */
+    {
+        0,
+        COSE_Algorithm_AES_CCM_16_64_128,
+        COSE_Algorithm_SHA_256_256,
+        8,
+        COSE_curve_X25519,
+        COSE_Algorithm_EdDSA,
+        COSE_Algorithm_AES_CCM_16_64_128,
+        COSE_Algorithm_SHA_256_256,
+        COSE_Algorithm_HMAC256_256,
+        COSE_curve_Ed25519,
+    },
+    /* suite 1 */
+    {
+        1,
+        COSE_Algorithm_AES_CCM_16_128_128,
+        COSE_Algorithm_SHA_256_256,
+        16,
+        COSE_curve_X25519,
+        COSE_Algorithm_EdDSA,
+        COSE_Algorithm_AES_CCM_16_64_128,
+        COSE_Algorithm_SHA_256_256,
+        COSE_Algorithm_HMAC256_256,
+        COSE_curve_Ed25519,
+    },
+    /* suite 2 */
+    {
+        2,
+        COSE_Algorithm_AES_CCM_16_64_128,
+        COSE_Algorithm_SHA_256_256,
+        8,
+        COSE_curve_P_256,
+        COSE_Algorithm_ES256,
+        COSE_Algorithm_AES_CCM_16_64_128,
+        COSE_Algorithm_SHA_256_256,
+        COSE_Algorithm_HMAC256_256,
+        COSE_curve_P_256,
+    },
+    /* suite 3 */
+    {
+        3,
+        COSE_Algorithm_AES_CCM_16_128_128,
+        COSE_Algorithm_SHA_256_256,
+        16,
+        COSE_curve_P_256,
+        COSE_Algorithm_ES256,
+        COSE_Algorithm_AES_CCM_16_64_128,
+        COSE_Algorithm_SHA_256_256,
+        COSE_Algorithm_HMAC256_256,
+        COSE_curve_P_256,
+    }};
 
-static uint8_t       edhoc_corr   = 0;
-static char          edhoc_function = '0';    /* set to 'I in initiator and to 'R in Responder */
+#ifdef COAP_SERVER_SUPPORT
+static uint8_t edhoc_corr = 0;
+#endif /* COAP_SERVER_SUPPORT */
+static char edhoc_function =
+    '0'; /* set to 'I in initiator and to 'R in Responder */
 
 #if 0
 void
@@ -217,22 +230,18 @@ edhoc_init_suite_files(char *key_ed25519, char *key_es256, char *cert_ed25519, c
 }
 #endif
 
+#ifdef COAP_SERVER_SUPPORT
 /* stores data of last identifier */
-static coap_string_t edhoc_C_I = {
-        .length = 0,
-        .s = NULL
-};
-static coap_string_t edhoc_C_R = {
-  .length = 0,
-        .s = NULL
-};
+static coap_string_t edhoc_C_I = {.length = 0, .s = NULL};
+static coap_string_t edhoc_C_R = {.length = 0, .s = NULL};
+#endif /* COAP_SERVER_SUPPORT */
 
+#if 0
   /* G_X_string contains the G_X sent by the initiator in message_1 */
 static coap_string_t G_X_string = {
         .length = 0,
         .s = NULL
 };
-#if 0
 
 /* stores message2 received for edhoc after message_1 */
 int16_t
@@ -388,29 +397,33 @@ edhoc_check_C_X( char IR, uint8_t *C_X, size_t C_X_len){
 }
 #endif
 
-
+#ifdef COAP_SERVER_SUPPORT
 /* edhoc_return_C_X  (X = I,R)
  * return specified stored C_X
  * nothing stored : returns -1
  * agreement returns 0
  */
 static int8_t
-edhoc_return_C_X(char IR, uint8_t **C_X, size_t *C_X_len){
-  if ( IR == 'I'){
-    if  (edhoc_C_I.s == NULL) return -1;
+edhoc_return_C_X(char IR, uint8_t **C_X, size_t *C_X_len) {
+  if (IR == 'I') {
+    if (edhoc_C_I.s == NULL)
+      return -1;
     *C_X_len = edhoc_C_I.length;
     *C_X = coap_malloc(*C_X_len);
     memcpy(*C_X, edhoc_C_I.s, *C_X_len);
-  } else if (IR == 'R'){
-    if  (edhoc_C_R.s == NULL) return -1;
+  } else if (IR == 'R') {
+    if (edhoc_C_R.s == NULL)
+      return -1;
     *C_X_len = edhoc_C_R.length;
     *C_X = coap_malloc(*C_X_len);
     memcpy(*C_X, edhoc_C_R.s, *C_X_len);
-  }
-  else return -1;
+  } else
+    return -1;
   return 0;
 }
+#endif /* COAP_SERVER_SUPPORT */
 
+#if 0
 /* edhoc_enter_C_X
  * stores specified C_X
  * no agreement: returns -1
@@ -442,6 +455,7 @@ edhoc_enter_C_X(char IR, uint8_t *C_X, size_t C_X_len){
   else return -1;
   return 0;
 }
+#endif
 
 /* edhoc_cbor_put_C_X
  * data points to first location to store
@@ -457,22 +471,21 @@ edhoc_enter_C_X(char IR, uint8_t *C_X, size_t C_X_len){
  * data_len decremented as appropriate
  */
 static size_t
-edhoc_cbor_put_C_X(uint8_t **data, size_t *data_size,
-                   const uint8_t *C_X, size_t C_X_len)
-{
+edhoc_cbor_put_C_X(uint8_t **data,
+                   size_t *data_size,
+                   const uint8_t *C_X,
+                   size_t C_X_len) {
   if (C_X_len > 1) {
     return oscore_cbor_put_bytes(data, data_size, C_X, C_X_len);
-  }
-  else if (C_X_len == 1) {
+  } else if (C_X_len == 1) {
     if (C_X[0] < 48) {
       int8_t nb = C_X[0] - C_X_offset;
       return oscore_cbor_put_number(data, data_size, nb);
-    }
-    else {
+    } else {
       return oscore_cbor_put_bytes(data, data_size, C_X, C_X_len);
     }
-  }
-  else return 0;
+  } else
+    return 0;
 }
 
 /* edhoc_cbor_get_C_X
@@ -482,14 +495,13 @@ edhoc_cbor_put_C_X(uint8_t **data, size_t *data_size,
  * ok , returns 0.
  */
 static int8_t
-edhoc_cbor_get_C_X(const uint8_t **data, uint8_t **C_X, size_t *C_X_len){
-  int64_t  mm = 0;
-  uint8_t  elem = oscore_cbor_get_next_element(data);
-  if (elem == CBOR_BYTE_STRING){
-    return oscore_cbor_get_string_array( data, C_X, C_X_len);
-  }
-  else if (elem == CBOR_UNSIGNED_INTEGER || elem == CBOR_NEGATIVE_INTEGER) {
-    int8_t ok = oscore_cbor_get_number( data, &mm);
+edhoc_cbor_get_C_X(const uint8_t **data, uint8_t **C_X, size_t *C_X_len) {
+  int64_t mm = 0;
+  uint8_t elem = oscore_cbor_get_next_element(data);
+  if (elem == CBOR_BYTE_STRING) {
+    return oscore_cbor_get_string_array(data, C_X, C_X_len);
+  } else if (elem == CBOR_UNSIGNED_INTEGER || elem == CBOR_NEGATIVE_INTEGER) {
+    int8_t ok = oscore_cbor_get_number(data, &mm);
     if (ok != 0)
       return ok;
     int16_t val = (int8_t)(mm);
@@ -501,41 +513,45 @@ edhoc_cbor_get_C_X(const uint8_t **data, uint8_t **C_X, size_t *C_X_len){
   return 0;
 }
 
+#ifdef COAP_SERVER_SUPPORT
 /*
  * Return error and error message
  */
 static void
-edhoc_error_return(char IR, uint8_t error, coap_pdu_t *response,
-                   const char *message)
-{
+edhoc_error_return(char IR,
+                   uint8_t error,
+                   coap_pdu_t *response,
+                   const char *message) {
   unsigned char opt_buf[5];
-  uint8_t  *C_X = NULL;
-  size_t   C_X_len = 0;
+  uint8_t *C_X = NULL;
+  size_t C_X_len = 0;
 
-  if ((IR = 'I')&& ((edhoc_corr == 1) || (edhoc_corr == 0))){
+  if ((IR = 'I') && ((edhoc_corr == 1) || (edhoc_corr == 0))) {
     edhoc_return_C_X('R', &C_X, &C_X_len);
-  } else if ((IR = 'R')&& ((edhoc_corr == 2) || (edhoc_corr == 0))){
+  } else if ((IR = 'R') && ((edhoc_corr == 2) || (edhoc_corr == 0))) {
     edhoc_return_C_X('I', &C_X, &C_X_len);
   }
   coap_log(LOG_WARNING, "%s", message);
-  size_t  ms_size = strlen(message) + C_X_len + 4;
+  size_t ms_size = strlen(message) + C_X_len + 4;
   uint8_t *edhoc_message = coap_malloc(ms_size);
-  size_t  nr = 0;
-  char    *pt = NULL;
+  size_t nr = 0;
+  char *pt = NULL;
   memcpy(&pt, &message, sizeof(void *));
   uint8_t *buf = edhoc_message;
   nr += oscore_cbor_put_bytes(&buf, &ms_size, C_X, C_X_len);
   nr += oscore_cbor_put_text(&buf, &ms_size, pt, strlen(message));
-  assert (nr < ms_size);
+  assert(nr < ms_size);
   response->code = error;
   response->data = NULL;
   response->used_size = response->token_length;
-  coap_add_option(response,
-                COAP_OPTION_CONTENT_FORMAT,
-                coap_encode_var_safe(opt_buf, sizeof(opt_buf),
-                COAP_MEDIATYPE_TEXT_PLAIN), opt_buf);
+  coap_add_option(
+      response,
+      COAP_OPTION_CONTENT_FORMAT,
+      coap_encode_var_safe(opt_buf, sizeof(opt_buf), COAP_MEDIATYPE_TEXT_PLAIN),
+      opt_buf);
   coap_add_data(response, nr, (const uint8_t *)edhoc_message);
 }
+#endif /* COAP_SERVER_SUPPORT */
 
 #if 0
 
@@ -650,8 +666,8 @@ edhoc_create_oscore_context(coap_context_t *context, uint8_t *PRK_4x3m, uint8_t 
   size_t  key_len  = cose_key_len(alg);
   uint8_t *Master_key  = NULL;
   uint8_t *Master_salt = NULL;
-  char    secret[]     = "OSCORE_Master_Secret";
-  char    salt[]       = "OSCORE_Master_Salt";
+  char    secret[]     = "OSCORE_Secret";
+  char    salt[]       = "OSCORE_Salt";
   int8_t ok = 0;
   edhoc_create_key( &Master_key, key_len, secret, sizeof(secret) - 1,
                       TH_4, PRK_4x3m);
@@ -1086,37 +1102,49 @@ edhoc_TH_3_gen(uint8_t *TH_3, uint8_t *TH_2, uint8_t *CIPHERTEXT_2, size_t CIPHE
  * TH_2 = H( H(message_1), G_Y, C_R )
  */
 static int
-edhoc_TH_2_gen(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1,
-               coap_bin_const_t** TH_2)
-{
+edhoc_TH_2_gen(edhoc_ctx_t *edhoc_ctx,
+               coap_bin_const_t *message_1,
+               coap_bin_const_t **TH_2) {
   coap_bin_const_t *hash_m1;
   coap_binary_t *combined = NULL;
   uint8_t *data;
   size_t data_len;
+  int64_t value;
+  const uint8_t *p;
   edhoc_suite_t *suite = &supported_cipher_suites[edhoc_ctx->selected_suite];
 
-  if (coap_crypto_hash(suite->hash_alg, (const coap_bin_const_t*)message_1,
+  if (coap_crypto_hash(suite->hash_alg,
+                       (const coap_bin_const_t *)message_1,
                        &hash_m1) == 0)
-    return -1; 
+    return -1;
 
   /* Create CBOR sequence */
   combined = coap_new_binary(8 + hash_m1->length + edhoc_ctx->G_Y->length +
-                  edhoc_ctx->C_R->length);
+                             edhoc_ctx->C_R->length);
   if (combined == NULL)
     goto error;
 
   data = combined->s;
   data_len = combined->length;
-  oscore_cbor_put_bytes(&data, &data_len, hash_m1->s,
-                              hash_m1->length);
-  oscore_cbor_put_bytes(&data, &data_len, edhoc_ctx->G_Y->s,
-                              edhoc_ctx->G_Y->length);
-  oscore_cbor_put_bytes(&data, &data_len, edhoc_ctx->C_R->s,
-                              edhoc_ctx->C_R->length);
+  oscore_cbor_put_bytes(&data, &data_len, hash_m1->s, hash_m1->length);
+  oscore_cbor_put_bytes(&data,
+                        &data_len,
+                        edhoc_ctx->G_Y->s,
+                        edhoc_ctx->G_Y->length);
+  p = edhoc_ctx->C_R->s;
+  if (edhoc_ctx->C_R->length > 0 && oscore_cbor_get_number(&p, &value) == 0) {
+    /* Integer encoding */
+    oscore_cbor_put_number(&data, &data_len, value);
+  } else {
+    oscore_cbor_put_bytes(&data,
+                          &data_len,
+                          edhoc_ctx->C_R->s,
+                          edhoc_ctx->C_R->length);
+  }
   combined->length -= data_len;
 
-  if (coap_crypto_hash(suite->hash_alg, (coap_bin_const_t*)combined,
-                       TH_2) == 0)
+  if (coap_crypto_hash(suite->hash_alg, (coap_bin_const_t *)combined, TH_2) ==
+      0)
     goto error;
   coap_delete_binary(combined);
   coap_delete_bin_const(hash_m1);
@@ -2251,26 +2279,24 @@ edhoc_sign(char IR, uint8_t *signature, size_t *signature_len, uint8_t *payload,
  * returns 0 when OK
  */
 static int8_t
-edhoc_get_suite(const uint8_t **buf, int8_t *selected_suite){
+edhoc_get_suite(const uint8_t **buf, int8_t *selected_suite) {
   int8_t ok = 0;
-  int64_t  mm;
-  uint8_t  elem = oscore_cbor_get_next_element(buf);
+  int64_t mm;
+  uint8_t elem = oscore_cbor_get_next_element(buf);
   if (elem == CBOR_ARRAY) {
     uint64_t arr_size = oscore_cbor_get_element_size(buf);
-    for (uint64_t i=0 ; i < arr_size; i++){
+    for (uint64_t i = 0; i < arr_size; i++) {
       ok = oscore_cbor_get_number(buf, &mm);
       if (ok != 0)
         return -2;
       if (i == 0)
         *selected_suite = (int8_t)mm;
     }
-  }
-  else if ((elem == CBOR_UNSIGNED_INTEGER) ||
-           (elem == CBOR_NEGATIVE_INTEGER)) {
-     ok = oscore_cbor_get_number(buf, &mm);
-     *selected_suite = (int8_t)mm;
-  }
-  else {
+  } else if ((elem == CBOR_UNSIGNED_INTEGER) ||
+             (elem == CBOR_NEGATIVE_INTEGER)) {
+    ok = oscore_cbor_get_number(buf, &mm);
+    *selected_suite = (int8_t)mm;
+  } else {
     return -1;
   }
   return 0;
@@ -2293,23 +2319,20 @@ edhoc_get_suite(const uint8_t **buf, int8_t *selected_suite){
  *  G_X
  *  C_I
  *  ? ead_1
- *  
+ *
  *
  * returns error -2 when message cannot be parsed
  * returns error -1 when parameter values are not supported
  * returns 0 when OK
  */
 int16_t
-edhoc_receive_message_1(edhoc_ctx_t *edhoc_ctx,
-                        coap_bin_const_t *message_1)
-{
+edhoc_receive_message_1(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1) {
   const uint8_t *buf = message_1->s;
   /* disassemble message 1 */
-  int8_t   ok = 0;
-  int64_t  mm;
-  int8_t   selected_suite = 0;
-  uint8_t *bstr;
-  size_t bstr_len = 0;
+  int8_t ok = 0;
+  int64_t mm;
+  int8_t selected_suite = 0;
+  coap_binary_t bstr;
 
   ok = oscore_cbor_get_number(&buf, &mm);
   if (ok != 0 || mm < 0 || mm >= EDHOC_METHOD_LAST) {
@@ -2320,42 +2343,46 @@ edhoc_receive_message_1(edhoc_ctx_t *edhoc_ctx,
   edhoc_ctx->method = mm;
 
   /* to be replaced with array detector */
-  ok = edhoc_get_suite( &buf, &selected_suite);
-  if(ok != 0){
-    coap_log(LOG_ERR,  "EDHOC message_1 (suite) is corrupted\n");
+  ok = edhoc_get_suite(&buf, &selected_suite);
+  if (ok != 0) {
+    coap_log(LOG_ERR, "EDHOC message_1 (suite) is corrupted\n");
     return -2;
   }
-  if ((selected_suite > EDHOC_MAX_SUITE - 1) || (selected_suite < 0)){
-    coap_log(LOG_ERR,  "selected suite %d is not supported\n", selected_suite);
+  if ((selected_suite > EDHOC_MAX_SUITE - 1) || (selected_suite < 0)) {
+    coap_log(LOG_ERR, "selected suite %d is not supported\n", selected_suite);
     return -1;
   }
   edhoc_ctx->selected_suite = selected_suite;
-  ok = oscore_cbor_get_string_array(&buf, &bstr, &bstr_len);
-  if(ok != 0){
-    coap_log(LOG_ERR,  "EDHOC message_1 (G_X) is corrupted\n");
+  ok = oscore_cbor_get_string_array(&buf, &bstr.s, &bstr.length);
+  if (ok != 0) {
+    coap_log(LOG_ERR, "EDHOC message_1 (G_X) is corrupted\n");
     return -2;
   }
-  edhoc_ctx->G_X = coap_new_bin_const(bstr, bstr_len);
-  coap_free(bstr);
+  edhoc_ctx->G_X = coap_new_bin_const(bstr.s, bstr.length);
+  coap_free(bstr.s);
+  if (edhoc_ctx->G_X == NULL) {
+    coap_log(LOG_ERR, "malloc failure\n");
+    return -2;
+  }
 
-  ok = edhoc_cbor_get_C_X(&buf, &bstr, &bstr_len);
-  if(ok != 0){
-    coap_log(LOG_ERR,  "EDHOC message_1 (C_I) is corrupted\n");
+  ok = edhoc_cbor_get_C_X(&buf, &bstr.s, &bstr.length);
+  if (ok != 0) {
+    coap_log(LOG_ERR, "EDHOC message_1 (C_I) is corrupted\n");
     return -2;
   }
   /* Peer is telling us what our sender_id is to be */
-  edhoc_ctx->C_I = coap_new_bin_const(bstr, bstr_len);
-  coap_free(bstr);
+  edhoc_ctx->C_I = coap_new_bin_const(bstr.s, bstr.length);
+  coap_free(bstr.s);
 
-  if ((size_t)(buf - message_1->s) < message_1->length ) {
-   /* additional EAD_1 data present in message_1  */
-    ok = oscore_cbor_get_string_array(&buf, &bstr, &bstr_len);
-    if(ok != 0){
-       coap_log(LOG_ERR,  "EDHOC message_1 (EAD_1) is corrupted\n");
-       return -2;
+  if ((size_t)(buf - message_1->s) < message_1->length) {
+    /* additional EAD_1 data present in message_1  */
+    ok = oscore_cbor_get_string_array(&buf, &bstr.s, &bstr.length);
+    if (ok != 0) {
+      coap_log(LOG_ERR, "EDHOC message_1 (EAD_1) is corrupted\n");
+      return -2;
     } /* if ok */
-    edhoc_ctx->ead_1 = coap_new_bin_const(bstr, bstr_len);
-    coap_free(bstr);
+    edhoc_ctx->ead_1 = coap_new_bin_const(bstr.s, bstr.length);
+    coap_free(bstr.s);
   } /* if buf - data */
   return 0;
 }
@@ -2489,9 +2516,7 @@ exit3:
  * returns 0 when OK
  */
 int16_t
-edhoc_receive_message_2(edhoc_ctx_t *edhoc_ctx,
-                        coap_bin_const_t *message_2)
-{
+edhoc_receive_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_2) {
   const uint8_t *buf = message_2->s;
   int8_t ok = 0;
   uint8_t *G_Y_CIPHERTEXT_2;
@@ -2499,15 +2524,16 @@ edhoc_receive_message_2(edhoc_ctx_t *edhoc_ctx,
   uint8_t *bstr;
   size_t bstr_len;
 
-  ok = oscore_cbor_get_string_array(&buf, &G_Y_CIPHERTEXT_2,
+  ok = oscore_cbor_get_string_array(&buf,
+                                    &G_Y_CIPHERTEXT_2,
                                     &G_Y_CIPHERTEXT_2_len);
-  if(ok != 0){
+  if (ok != 0) {
     coap_log(LOG_ERR, "EDHOC message_2 is corrupted\n");
     return -2;
   }
   ok = edhoc_cbor_get_C_X(&buf, &bstr, &bstr_len);
-  if(ok != 0){
-    coap_log(LOG_ERR,  "EDHOC message_2 (C_R) is corrupted\n");
+  if (ok != 0) {
+    coap_log(LOG_ERR, "EDHOC message_2 (C_R) is corrupted\n");
     return -2;
   }
   /* Peer is telling us what our sender_id is to be */
@@ -2516,7 +2542,7 @@ edhoc_receive_message_2(edhoc_ctx_t *edhoc_ctx,
 
   buf = G_Y_CIPHERTEXT_2;
   ok = oscore_cbor_get_string_array(&buf, &bstr, &bstr_len);
-  if(ok != 0){
+  if (ok != 0) {
     coap_log(LOG_ERR, "EDHOC message_2 G_Y_CIPHERTEXT_2 is corrupted\n");
     return -2;
   }
@@ -3050,10 +3076,9 @@ exit:
  * returns message_2 when OK
  */
 coap_binary_t *
-edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
-{
-  coap_bin_const_t *prk_2e = NULL;
-  coap_bin_const_t *prk_3e2m = NULL;
+edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1) {
+  coap_bin_const_t *PRK_2e = NULL;
+  coap_bin_const_t *PRK_3e2m = NULL;
   coap_bin_const_t *TH_2;
   uint8_t MAC_2[MAX_TAG_LEN];
   uint8_t KEYSTREAM_2[MAX_TAG_LEN];
@@ -3071,9 +3096,9 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
   size_t pt_len;
 
   char err_buf[CRT_BUF_SIZE];
-  memset( err_buf, 0, sizeof( err_buf ) );
+  memset(err_buf, 0, sizeof(err_buf));
   int ret = 0;
-  coap_bin_const_t zero_bytes = { 0, (const uint8_t*)"" };
+  coap_bin_const_t zero_bytes = {0, (const uint8_t *)""};
 
   ret = edhoc_TH_2_gen(edhoc_ctx, message_1, &TH_2);
   if (ret != 0) {
@@ -3092,37 +3117,38 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
                                        &G_RX) == 0)
     goto exit1;
 
-  if (oscore_hkdf_extract(suite->hkdf_alg, &zero_bytes, edhoc_ctx->G_XY,
-                      &prk_2e) == 1)
+  if (oscore_hkdf_extract(suite->hkdf_alg,
+                          &zero_bytes,
+                          edhoc_ctx->G_XY,
+                          &PRK_2e) == 1)
     goto exit1;
 
   if (edhoc_ctx->method == EDHOC_METHOD_I_SIG_R_DH ||
       edhoc_ctx->method == EDHOC_METHOD_I_DH_R_DH) {
     /* Using static DH key */
-    if (oscore_hkdf_extract(suite->hkdf_alg, prk_2e, G_RX, &prk_3e2m) == 1)
+    if (oscore_hkdf_extract(suite->hkdf_alg, PRK_2e, G_RX, &PRK_3e2m) == 1)
       goto exit1;
-  }
-  else {
+  } else {
     /* Using signature key */
-    prk_3e2m = coap_new_bin_const(prk_2e->s, prk_2e->length);
-    if (prk_3e2m == NULL)
+    PRK_3e2m = coap_new_bin_const(PRK_2e->s, PRK_2e->length);
+    if (PRK_3e2m == NULL)
       goto exit1;
   }
-
-  I_CRED_R = coap_new_binary(3 + 1 + 1 + 1);
-  if (I_CRED_R == NULL)
-    goto exit1;
-
-  pt = I_CRED_R->s;
-  pt_len = I_CRED_R->length;
-  oscore_cbor_put_map(&pt, &pt_len, 1);
-  oscore_cbor_put_number(&pt, &pt_len, 4); /* kid */
-  oscore_cbor_put_number(&pt, &pt_len, suite->hkdf_alg);
-  I_CRED_R->length = pt - I_CRED_R->s;
 
   if (edhoc_ctx->method == EDHOC_METHOD_I_SIG_R_DH ||
       edhoc_ctx->method == EDHOC_METHOD_I_DH_R_DH) {
     /* Using static DH key */
+    I_CRED_R = coap_new_binary(3 + 1 + 1 + 1);
+    if (I_CRED_R == NULL)
+      goto exit1;
+
+    pt = I_CRED_R->s;
+    pt_len = I_CRED_R->length;
+    oscore_cbor_put_map(&pt, &pt_len, 1);
+    oscore_cbor_put_number(&pt, &pt_len, 4); /* kid */
+    oscore_cbor_put_number(&pt, &pt_len, suite->hkdf_alg);
+    I_CRED_R->length = pt - I_CRED_R->s;
+
     CRED_R = coap_new_binary(3 + 15 + edhoc_ctx->dh_subject->length +
                              edhoc_ctx->G_R->length);
     if (CRED_R == NULL)
@@ -3132,8 +3158,10 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
     pt_len = CRED_R->length;
     oscore_cbor_put_map(&pt, &pt_len, 2);
     oscore_cbor_put_number(&pt, &pt_len, 2); /* sub */
-    oscore_cbor_put_text(&pt, &pt_len, (const char*)edhoc_ctx->dh_subject->s,
-                                        edhoc_ctx->dh_subject->length);
+    oscore_cbor_put_text(&pt,
+                         &pt_len,
+                         (const char *)edhoc_ctx->dh_subject->s,
+                         edhoc_ctx->dh_subject->length);
     oscore_cbor_put_number(&pt, &pt_len, 8); /* cnf */
     oscore_cbor_put_map(&pt, &pt_len, 1);
     oscore_cbor_put_number(&pt, &pt_len, 1); /* COSE_Key */
@@ -3145,8 +3173,10 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
     oscore_cbor_put_number(&pt, &pt_len, -1); /* crv */
     oscore_cbor_put_number(&pt, &pt_len, 4);
     oscore_cbor_put_number(&pt, &pt_len, -2); /* x */
-    oscore_cbor_put_bytes(&pt, &pt_len, edhoc_ctx->G_R->s,
-                                        edhoc_ctx->G_R->length);
+    oscore_cbor_put_bytes(&pt,
+                          &pt_len,
+                          edhoc_ctx->G_R->s,
+                          edhoc_ctx->G_R->length);
     CRED_R->length = pt - CRED_R->s;
 
     combine = coap_new_binary(I_CRED_R->length + CRED_R->length);
@@ -3168,8 +3198,12 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
     coap_delete_binary(combine);
     combine = NULL;
 
-    oscore_hkdf_expand(suite->hkdf_alg, prk_3e2m, MAC_2_info->s,
-                       MAC_2_info->length, MAC_2, suite->mac_len);
+    oscore_hkdf_expand(suite->hkdf_alg,
+                       PRK_3e2m,
+                       MAC_2_info->s,
+                       MAC_2_info->length,
+                       MAC_2,
+                       suite->mac_len);
 
     PLAINTEXT_2 = coap_new_binary(3 + suite->mac_len);
     if (PLAINTEXT_2 == NULL)
@@ -3189,22 +3223,26 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
     pt_len = KEYSTREAM_2_info->length;
     oscore_cbor_put_bytes(&pt, &pt_len, TH_2->s, TH_2->length);
     oscore_cbor_put_text(&pt, &pt_len, "KEYSTREAM_2", 11);
-    oscore_cbor_put_bytes(&pt, &pt_len, (const uint8_t*)"", 0);
+    oscore_cbor_put_bytes(&pt, &pt_len, (const uint8_t *)"", 0);
     oscore_cbor_put_number(&pt, &pt_len, PLAINTEXT_2->length);
     KEYSTREAM_2_info->length = pt - KEYSTREAM_2_info->s;
 
-    oscore_hkdf_expand(suite->hkdf_alg, prk_2e, KEYSTREAM_2_info->s,
-                       KEYSTREAM_2_info->length, KEYSTREAM_2,
+    oscore_hkdf_expand(suite->hkdf_alg,
+                       PRK_2e,
+                       KEYSTREAM_2_info->s,
+                       KEYSTREAM_2_info->length,
+                       KEYSTREAM_2,
                        PLAINTEXT_2->length);
 
     for (size_t i = 0; i < PLAINTEXT_2->length; i++) {
-       CIPHERTEXT_2[i] = KEYSTREAM_2[i] ^ PLAINTEXT_2->s[i];
+      CIPHERTEXT_2[i] = KEYSTREAM_2[i] ^ PLAINTEXT_2->s[i];
     }
     combine = coap_new_binary(edhoc_ctx->G_Y->length + PLAINTEXT_2->length);
     if (combine == NULL)
       goto exit1;
     memcpy(combine->s, edhoc_ctx->G_Y->s, edhoc_ctx->G_Y->length);
-    memcpy(&combine->s[edhoc_ctx->G_Y->length], CIPHERTEXT_2,
+    memcpy(&combine->s[edhoc_ctx->G_Y->length],
+           CIPHERTEXT_2,
            PLAINTEXT_2->length);
 
     message_2 = coap_new_binary(3 + combine->length + edhoc_ctx->C_R->length);
@@ -3214,21 +3252,35 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
     pt = message_2->s;
     pt_len = message_2->length;
     oscore_cbor_put_bytes(&pt, &pt_len, combine->s, combine->length);
-    oscore_cbor_put_bytes(&pt, &pt_len, edhoc_ctx->C_R->s,
+    oscore_cbor_put_bytes(&pt,
+                          &pt_len,
+                          edhoc_ctx->C_R->s,
                           edhoc_ctx->C_R->length);
     message_2->length = pt - message_2->s;
- 
-  }
-  else {
+
+  } else {
     /* Using signature key */
+    I_CRED_R = coap_new_binary(3 + 1 + 1 + 1);
+    if (I_CRED_R == NULL)
+      goto exit1;
+
+    pt = I_CRED_R->s;
+    pt_len = I_CRED_R->length;
+    oscore_cbor_put_map(&pt, &pt_len, 1);
+    oscore_cbor_put_number(&pt, &pt_len, 34); /* 'x5t' */
+    if (suite->hash_alg == COSE_Algorithm_SHA_256_256)
+      oscore_cbor_put_number(&pt, &pt_len, COSE_Algorithm_SHA_256_64);
+    else
+      oscore_cbor_put_number(&pt, &pt_len, suite->hash_alg);
+    I_CRED_R->length = pt - I_CRED_R->s;
   }
-  
+
 #if 0
-  edhoc_create_prk_3e2m(edhoc_ctx, prk_3e2m, prk_2e);
+  edhoc_create_PRK_3e2m(edhoc_ctx, PRK_3e2m, PRK_2e);
   edhoc_data_2(edhoc_ctx, &data_2, &data_2_len);
 
   size_t tag_len = cose_tag_len( alg);
-  ret = edhoc_gen_MAC_2(edhoc_ctx, IR, TH_2, prk_3e2m, MAC_2);
+  ret = edhoc_gen_MAC_2(edhoc_ctx, IR, TH_2, PRK_3e2m, MAC_2);
   if (ret != 0) {
     goto exit1;
   }
@@ -3252,7 +3304,7 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
   size_t P_2e_len = edhoc_P_x( &P_2e, IR, signature, signature_len);
   uint8_t *K_2e = NULL;
   edhoc_create_key( &K_2e, P_2e_len, keystream, sizeof(keystream) -1,
-                      TH_2, prk_2e);
+                      TH_2, PRK_2e);
   /* do xor on K_2e and P_2e */
   CIPHERTEXT_2 = coap_malloc(P_2e_len);
   for (uint qq= 0 ; qq < P_2e_len; qq++) CIPHERTEXT_2[qq] = K_2e[qq]^P_2e[qq];
@@ -3273,8 +3325,8 @@ edhoc_create_message_2(edhoc_ctx_t *edhoc_ctx, coap_bin_const_t *message_1)
   if( M_2 != NULL)coap_free(M_2);
 #endif
 exit1:
-  coap_delete_bin_const(prk_2e);
-  coap_delete_bin_const(prk_3e2m);
+  coap_delete_bin_const(PRK_2e);
+  coap_delete_bin_const(PRK_3e2m);
   coap_delete_bin_const(TH_2);
   coap_delete_bin_const(G_RX);
   coap_delete_binary(I_CRED_R);
@@ -3301,19 +3353,17 @@ exit1:
  *
  */
 coap_binary_t *
-edhoc_create_message_1(edhoc_ctx_t *edhoc_ctx)
-{
+edhoc_create_message_1(edhoc_ctx_t *edhoc_ctx) {
   /* prepare message  */
-  size_t  nr = 0;
+  size_t nr = 0;
   coap_binary_t *message_1;
-  edhoc_suite_t *suite;
 
-  edhoc_function = 'I';   /* this is an Initiator */
-  if (edhoc_ctx->suite[0] > EDHOC_MAX_SUITE) return NULL;
-  suite = &supported_cipher_suites[edhoc_ctx->suite[0]];
+  edhoc_function = 'I'; /* this is an Initiator */
+  if (edhoc_ctx->suite[0] > EDHOC_MAX_SUITE)
+    return NULL;
 
-  message_1 = coap_new_binary(10 + edhoc_ctx->G_X->length +
-                              edhoc_ctx->C_I->length);
+  message_1 =
+      coap_new_binary(10 + edhoc_ctx->G_X->length + edhoc_ctx->C_I->length);
   if (message_1 == NULL)
     return NULL;
   uint8_t *data = message_1->s;
@@ -3323,16 +3373,19 @@ edhoc_create_message_1(edhoc_ctx_t *edhoc_ctx)
   nr += oscore_cbor_put_number(&data, &data_len, edhoc_ctx->method);
   if (edhoc_ctx->suite_cnt == 1) {
     nr += oscore_cbor_put_number(&data, &data_len, edhoc_ctx->suite[0]);
-  }
-  else {
+  } else {
     oscore_cbor_put_array(&data, &data_len, edhoc_ctx->suite_cnt);
     for (size_t i = 0; i < edhoc_ctx->suite_cnt; i++) {
       nr += oscore_cbor_put_number(&data, &data_len, edhoc_ctx->suite[i]);
     }
   }
-  nr += oscore_cbor_put_bytes(&data, &data_len, edhoc_ctx->G_X->s,
+  nr += oscore_cbor_put_bytes(&data,
+                              &data_len,
+                              edhoc_ctx->G_X->s,
                               edhoc_ctx->G_X->length);
-  nr += edhoc_cbor_put_C_X(&data, &data_len, edhoc_ctx->C_I->s,
+  nr += edhoc_cbor_put_C_X(&data,
+                           &data_len,
+                           edhoc_ctx->C_I->s,
                            edhoc_ctx->C_I->length);
   /* No EAD_1 */
   assert(nr < message_1->length);
@@ -3340,9 +3393,10 @@ edhoc_create_message_1(edhoc_ctx_t *edhoc_ctx)
   return message_1;
 }
 
+#ifdef COAP_SERVER_SUPPORT
 static void
 free_message_data(coap_session_t *session COAP_UNUSED, void *data) {
-  coap_binary_t *bdata = (coap_binary_t*)data;
+  coap_binary_t *bdata = (coap_binary_t *)data;
   coap_delete_binary(bdata);
 }
 
@@ -3351,9 +3405,8 @@ hnd_post_edhoc(coap_resource_t *resource COAP_UNUSED,
                coap_session_t *session,
                const coap_pdu_t *request,
                const coap_string_t *query COAP_UNUSED,
-               coap_pdu_t *response)
-{
-  const uint8_t* data = NULL;
+               coap_pdu_t *response) {
+  const uint8_t *data = NULL;
   size_t size = 0;
   size_t offset;
   size_t total;
@@ -3364,13 +3417,15 @@ hnd_post_edhoc(coap_resource_t *resource COAP_UNUSED,
 
   /* Get all the input data */
   if (coap_get_data_large(request, &size, &data, &offset, &total) &&
-    size != total) {
+      size != total) {
     /*
      * This should not happen as COAP_RESOURCE_FLAGS_FORCE_SINGLE_BODY is
      * being used.
      */
-    edhoc_error_return('R',COAP_RESPONSE_CODE(500),
-                       response, "internal server error\n");
+    edhoc_error_return('R',
+                       COAP_RESPONSE_CODE(500),
+                       response,
+                       "internal server error\n");
     return;
   }
 
@@ -3379,17 +3434,19 @@ hnd_post_edhoc(coap_resource_t *resource COAP_UNUSED,
   message.length = size;
 
   if (edhoc_ctx == NULL) {
-    oscore_ctx_t *osc_ctx = session->context->osc_ctx;
+    oscore_ctx_t *osc_ctx = session->context->p_osc_ctx;
 
     edhoc_ctx = edhoc_new_context_responder(session, osc_ctx);
     if (edhoc_ctx == NULL) {
-      edhoc_error_return('R',COAP_RESPONSE_CODE(500),
-                         response, "internal server error\n");
+      edhoc_error_return('R',
+                         COAP_RESPONSE_CODE(500),
+                         response,
+                         "internal server error\n");
       return;
     }
-  }          
+  }
 
-  if (edhoc_ctx->state == EDHOC_MESSAGE_1) {  /* reception of message_1 */
+  if (edhoc_ctx->state == EDHOC_MESSAGE_1) { /* reception of message_1 */
     /* clear all formerly received messages  */
     coap_delete_binary(edhoc_ctx->message_3);
     edhoc_ctx->message_3 = NULL;
@@ -3402,18 +3459,28 @@ hnd_post_edhoc(coap_resource_t *resource COAP_UNUSED,
 
       message_2 = edhoc_create_message_2(edhoc_ctx, &message);
       if (message_2 == NULL) {
-        edhoc_error_return('R', COAP_RESPONSE_CODE(400),
-                           response, "Message 2 cannot be generated\n");
+        edhoc_error_return('R',
+                           COAP_RESPONSE_CODE(400),
+                           response,
+                           "Message 2 cannot be generated\n");
         edhoc_ctx->state = EDHOC_MESSAGE_1; /* wait for message_1 */
         return;
       }
       edhoc_ctx->state = EDHOC_MESSAGE_2;
       /* message_1 received, send message_2 */
       response->code = COAP_RESPONSE_CODE(204);
-      coap_add_data_large_response(resource, session, request, response,
-                                   query, COAP_MEDIATYPE_APPLICATION_EDHOC,
-                                   -1, 0, message_2->length, message_2->s,
-                                   free_message_data, message_2);
+      coap_add_data_large_response(resource,
+                                   session,
+                                   request,
+                                   response,
+                                   query,
+                                   COAP_MEDIATYPE_APPLICATION_EDHOC,
+                                   -1,
+                                   0,
+                                   message_2->length,
+                                   message_2->s,
+                                   free_message_data,
+                                   message_2);
     }
     return;
   }
@@ -3457,6 +3524,7 @@ hnd_post_edhoc(coap_resource_t *resource COAP_UNUSED,
   return;
 #endif
 }
+#endif /* COAP_SERVER_SUPPORT */
 
 #if 0
 /*
@@ -3486,8 +3554,7 @@ edhoc_read_message_2(coap_session_t *session, coap_cose_alg_t hkdf_alg)
  * returned message needs to be released by caller
  */
 coap_binary_t *
-edhoc_oscore_setup(coap_session_t *session)
-{
+edhoc_oscore_setup(coap_session_t *session) {
   edhoc_ctx_t *edhoc_ctx = session->edhoc_ctx;
   coap_binary_t *message = NULL;
 
@@ -3509,7 +3576,7 @@ edhoc_oscore_setup(coap_session_t *session)
     coap_delete_binary(edhoc_ctx->message_4);
     edhoc_ctx->message_4 = NULL;
 
-//    message = edhoc_read_message_2(edhoc_ctx);
+    //    message = edhoc_read_message_2(edhoc_ctx);
     if (message == NULL)
       return NULL;
     edhoc_ctx->state = EDHOC_MESSAGE_3;
@@ -3561,13 +3628,13 @@ edhoc_oscore_setup(coap_session_t *session)
   default:
     edhoc_ctx->state = EDHOC_FAILED;
     return NULL;
-  }  /* switch */
+  } /* switch */
   return NULL;
 }
 
+#ifdef COAP_SERVER_SUPPORT
 int
-edhoc_init_resources(coap_context_t *ctx)
-{
+edhoc_init_resources(coap_context_t *ctx) {
   coap_resource_t *r;
 
   if ((ctx->block_mode & COAP_BLOCK_USE_LIBCOAP) == 0)
@@ -3580,21 +3647,27 @@ edhoc_init_resources(coap_context_t *ctx)
   coap_register_handler(r, COAP_REQUEST_POST, hnd_post_edhoc);
 
   coap_add_attr(r, coap_make_str_const("ct"), coap_make_str_const("0"), 0);
-  coap_add_attr(r, coap_make_str_const("title"),
-                             coap_make_str_const("\"edhoc connection\""), 0);
-  coap_add_attr(r, coap_make_str_const("rt"),
-                             coap_make_str_const("\"core.edhoc\""), 0);
-  coap_add_attr(r, coap_make_str_const("if"),
-                             coap_make_str_const("\"edhoc\""), 0);
+  coap_add_attr(r,
+                coap_make_str_const("title"),
+                coap_make_str_const("\"edhoc connection\""),
+                0);
+  coap_add_attr(r,
+                coap_make_str_const("rt"),
+                coap_make_str_const("\"core.edhoc\""),
+                0);
+  coap_add_attr(r,
+                coap_make_str_const("if"),
+                coap_make_str_const("\"edhoc\""),
+                0);
 
   coap_add_resource(ctx, r);
   return 1;
 }
+#endif /* COAP_SERVER_SUPPORT */
 
 edhoc_ctx_t *
 edhoc_new_context_initiator(coap_session_t *session,
-                            coap_oscore_conf_t *oscore_conf)
-{
+                            coap_oscore_conf_t *oscore_conf) {
   edhoc_ctx_t *edhoc_ctx = coap_malloc(sizeof(edhoc_ctx_t));
   size_t i;
 
@@ -3609,20 +3682,20 @@ edhoc_new_context_initiator(coap_session_t *session,
   if (edhoc_ctx->C_I == NULL)
     goto error;
 
-  if (oscore_conf->sender_public_key && oscore_conf->sender_private_key) {
+  /* Just in case! */
+  coap_delete_bin_const(edhoc_ctx->X_private_key);
+  coap_delete_bin_const(edhoc_ctx->G_X);
+  if (oscore_conf->test_s_public_key && oscore_conf->test_s_private_key) {
     /* Pre-defined keys (usually when testing) */
-    edhoc_ctx->X_private_key = oscore_conf->sender_private_key;
-    edhoc_ctx->G_X = oscore_conf->sender_public_key;
-  }
-  else {
+    edhoc_ctx->X_private_key = oscore_conf->test_s_private_key;
+    edhoc_ctx->G_X = oscore_conf->test_s_public_key;
+  } else {
     edhoc_suite_t *suite =
-                        &supported_cipher_suites[oscore_conf->edhoc_suite[0]];
+        &supported_cipher_suites[oscore_conf->edhoc_suite[0]];
 
     /* Just in case! */
-    coap_delete_bin_const(oscore_conf->sender_private_key);
-    coap_delete_bin_const(oscore_conf->sender_public_key);
-    coap_delete_bin_const(edhoc_ctx->X_private_key);
-    coap_delete_bin_const(edhoc_ctx->G_X);
+    coap_delete_bin_const(oscore_conf->test_s_private_key);
+    coap_delete_bin_const(oscore_conf->test_s_public_key);
     /* create ephemeral ecdh 25519 public/private key  */
     if (coap_crypto_gen_pkey(suite->ecdh_curve,
                              &edhoc_ctx->X_private_key,
@@ -3632,20 +3705,20 @@ edhoc_new_context_initiator(coap_session_t *session,
   if (edhoc_ctx->X_private_key == NULL || edhoc_ctx->G_X == NULL)
     goto error;
 
-  if (oscore_conf->test_public_key && oscore_conf->test_private_key) {
+  /* Just in case! */
+  coap_delete_bin_const(edhoc_ctx->I_private_key);
+  coap_delete_bin_const(edhoc_ctx->G_I);
+  if (oscore_conf->test_r_public_key && oscore_conf->test_r_private_key) {
     /* Pre-defined keys (usually when testing) */
-    edhoc_ctx->I_private_key = oscore_conf->test_private_key;
-    edhoc_ctx->G_I = oscore_conf->test_public_key;
-  }
-  else {
+    edhoc_ctx->I_private_key = oscore_conf->test_r_private_key;
+    edhoc_ctx->G_I = oscore_conf->test_r_public_key;
+  } else {
     edhoc_suite_t *suite =
-                        &supported_cipher_suites[oscore_conf->edhoc_suite[0]];
+        &supported_cipher_suites[oscore_conf->edhoc_suite[0]];
 
     /* Just in case! */
-    coap_delete_bin_const(oscore_conf->test_private_key);
-    coap_delete_bin_const(oscore_conf->test_public_key);
-    coap_delete_bin_const(edhoc_ctx->I_private_key);
-    coap_delete_bin_const(edhoc_ctx->G_I);
+    coap_delete_bin_const(oscore_conf->test_r_private_key);
+    coap_delete_bin_const(oscore_conf->test_r_public_key);
     /* create ephemeral ecdh 25519 public/private key  */
     if (coap_crypto_gen_pkey(suite->ecdh_curve,
                              &edhoc_ctx->I_private_key,
@@ -3663,16 +3736,20 @@ edhoc_new_context_initiator(coap_session_t *session,
 
   /* Remove generated entries that have been used / consumed */
   for (i = 1; i < oscore_conf->recipient_id_count; i++) {
-    coap_delete_bin_const( oscore_conf->recipient_id[i]);
+    coap_delete_bin_const(oscore_conf->recipient_id[i]);
   }
   /* Free off the recipient_id array */
   coap_free(oscore_conf->recipient_id);
   oscore_conf->recipient_id = NULL;
   oscore_conf->recipient_id_count = 0;
+#if HAVE_OSCORE_GROUP
   oscore_conf->sender_private_key = NULL;
   oscore_conf->sender_public_key = NULL;
-  oscore_conf->test_private_key = NULL;
-  oscore_conf->test_public_key = NULL;
+#endif /* HAVE_OSCORE_GROUP */
+  oscore_conf->test_s_private_key = NULL;
+  oscore_conf->test_s_public_key = NULL;
+  oscore_conf->test_r_private_key = NULL;
+  oscore_conf->test_r_public_key = NULL;
   oscore_conf->edhoc_dh_subject = NULL;
   oscore_conf->edhoc_suite = NULL;
   oscore_conf->edhoc_suite_cnt = 0;
@@ -3688,8 +3765,7 @@ error:
 }
 
 edhoc_ctx_t *
-edhoc_new_context_responder(coap_session_t *session, oscore_ctx_t *osc_ctx)
-{
+edhoc_new_context_responder(coap_session_t *session, oscore_ctx_t *osc_ctx) {
   edhoc_ctx_t *edhoc_ctx = coap_malloc(sizeof(edhoc_ctx_t));
 
   if (edhoc_ctx == NULL) {
@@ -3698,22 +3774,21 @@ edhoc_new_context_responder(coap_session_t *session, oscore_ctx_t *osc_ctx)
 
   memset(edhoc_ctx, 0, sizeof(edhoc_ctx_t));
   edhoc_ctx->C_R =
-           coap_new_bin_const(osc_ctx->recipient_chain->recipient_id->s,
-                              osc_ctx->recipient_chain->recipient_id->length);
+      coap_new_bin_const(osc_ctx->recipient_chain->recipient_id->s,
+                         osc_ctx->recipient_chain->recipient_id->length);
   if (edhoc_ctx->C_R == NULL)
     goto error;
 
-  if (osc_ctx->sender_context->public_key &&
-      osc_ctx->sender_context->private_key) {
+  if (osc_ctx->sender_context->test_s_public_key &&
+      osc_ctx->sender_context->test_s_private_key) {
     /* Pre-defined keys (usually when testing) */
     edhoc_ctx->Y_private_key =
-           coap_new_bin_const(osc_ctx->sender_context->private_key->s,
-                              osc_ctx->sender_context->private_key->length);
+        coap_new_bin_const(osc_ctx->sender_context->test_s_private_key->s,
+                           osc_ctx->sender_context->test_s_private_key->length);
     edhoc_ctx->G_Y =
-           coap_new_bin_const(osc_ctx->sender_context->public_key->s,
-                              osc_ctx->sender_context->public_key->length);
-  }
-  else {
+        coap_new_bin_const(osc_ctx->sender_context->test_s_public_key->s,
+                           osc_ctx->sender_context->test_s_public_key->length);
+  } else {
     edhoc_suite_t *suite = &supported_cipher_suites[osc_ctx->edhoc_suite[0]];
     /* create ephemeral ecdh 25519 public/private key  */
     coap_delete_bin_const(edhoc_ctx->Y_private_key);
@@ -3726,21 +3801,18 @@ edhoc_new_context_responder(coap_session_t *session, oscore_ctx_t *osc_ctx)
   if (edhoc_ctx->Y_private_key == NULL || edhoc_ctx->G_Y == NULL)
     goto error;
 
-  if (osc_ctx->sender_context->test_public_key &&
-      osc_ctx->sender_context->test_private_key) {
+  if (osc_ctx->sender_context->test_r_public_key &&
+      osc_ctx->sender_context->test_r_private_key) {
     /* Pre-defined keys (usually when testing) */
     edhoc_ctx->R_private_key =
-         coap_new_bin_const(osc_ctx->sender_context->test_private_key->s,
-                            osc_ctx->sender_context->test_private_key->length);
+        coap_new_bin_const(osc_ctx->sender_context->test_r_private_key->s,
+                           osc_ctx->sender_context->test_r_private_key->length);
     edhoc_ctx->G_R =
-           coap_new_bin_const(osc_ctx->sender_context->test_public_key->s,
-                              osc_ctx->sender_context->test_public_key->length);
-  }
-  else {
+        coap_new_bin_const(osc_ctx->sender_context->test_r_public_key->s,
+                           osc_ctx->sender_context->test_r_public_key->length);
+  } else {
     edhoc_suite_t *suite = &supported_cipher_suites[osc_ctx->edhoc_suite[0]];
     /* create ephemeral ecdh 25519 public/private key  */
-    coap_delete_bin_const(edhoc_ctx->R_private_key);
-    coap_delete_bin_const(edhoc_ctx->G_R);
     if (coap_crypto_gen_pkey(suite->ecdh_curve,
                              &edhoc_ctx->R_private_key,
                              &edhoc_ctx->G_R) == 0)
@@ -3751,17 +3823,17 @@ edhoc_new_context_responder(coap_session_t *session, oscore_ctx_t *osc_ctx)
 
   if (osc_ctx->sender_context->edhoc_dh_subject) {
     edhoc_ctx->dh_subject =
-         coap_new_bin_const(osc_ctx->sender_context->edhoc_dh_subject->s,
-                            osc_ctx->sender_context->edhoc_dh_subject->length);
+        coap_new_bin_const(osc_ctx->sender_context->edhoc_dh_subject->s,
+                           osc_ctx->sender_context->edhoc_dh_subject->length);
     if (edhoc_ctx->dh_subject == NULL)
       goto error;
   }
   edhoc_ctx->state = EDHOC_MESSAGE_1;
   edhoc_ctx->suite =
-           coap_malloc(osc_ctx->edhoc_suite_cnt * sizeof(edhoc_ctx->suite[0]));
+      coap_malloc(osc_ctx->edhoc_suite_cnt * sizeof(edhoc_ctx->suite[0]));
   if (edhoc_ctx->suite == NULL)
     goto error;
-  memcpy(edhoc_ctx->suite, osc_ctx->edhoc_suite,  sizeof(edhoc_ctx->suite[0]));
+  memcpy(edhoc_ctx->suite, osc_ctx->edhoc_suite, sizeof(edhoc_ctx->suite[0]));
   edhoc_ctx->suite_cnt = osc_ctx->edhoc_suite_cnt;
 
   assert(session->edhoc_ctx == NULL);
@@ -3774,8 +3846,7 @@ error:
 }
 
 void
-edhoc_delete_context(edhoc_ctx_t *edhoc_ctx)
-{
+edhoc_delete_context(edhoc_ctx_t *edhoc_ctx) {
   coap_delete_bin_const(edhoc_ctx->C_I);
   coap_delete_bin_const(edhoc_ctx->C_R);
   coap_delete_bin_const(edhoc_ctx->X_private_key);
@@ -3795,5 +3866,3 @@ edhoc_delete_context(edhoc_ctx_t *edhoc_ctx)
 
   coap_free(edhoc_ctx);
 }
-
-

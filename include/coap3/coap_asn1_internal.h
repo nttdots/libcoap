@@ -80,10 +80,36 @@ coap_asn1_tag_t asn1_tag_c(const uint8_t **ptr, int *constructed, int *class);
  * @param tlen The remaining size oof the asn.1 data
  * @param validate Call validate to verify tag data or @c NULL
  *
- * @return The asn.1 tag and data or @c NULL if not found
+ * @return The asn.1 tag and data (to be freed off by caller)
+ *         or @c NULL if not found
  */
 coap_binary_t *get_asn1_tag(coap_asn1_tag_t ltag, const uint8_t *ptr,
                             size_t tlen, asn1_validate validate);
+
+/**
+ * Split the ASN.1 signature into the r and s components.
+ *
+ * Internal function.
+ *
+ * @param asn1 The asn.1 to split
+ * @param size The size of the split out r and s.
+ *
+ * @return The combined r + s with leading 0s if needed (to be freed off
+ *         by caller) or @c NULL if error.
+ */
+coap_binary_t *coap_asn1_split_r_s(coap_binary_t *asn1, size_t size);
+
+/**
+ * Join the r and s components into ASN1. signature.
+ *
+ * Internal function.
+ *
+ * @param r_s The r and s combined to create ASN.1
+ *
+ * @return The ASN.1 equivalent of r + s (to be freed off
+ *         by caller) or @c NULL if error.
+ */
+coap_binary_t *coap_asn1_r_s_join(coap_binary_t *r_s);
 
 /** @} */
 

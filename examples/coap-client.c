@@ -346,6 +346,13 @@ event_handler(coap_session_t *session COAP_UNUSED,
   case COAP_EVENT_DTLS_CLOSED:
   case COAP_EVENT_TCP_CLOSED:
   case COAP_EVENT_SESSION_CLOSED:
+  case COAP_EVENT_OSCORE_DECRYPTION_FAILURE:
+  case COAP_EVENT_OSCORE_NOT_ENABLED:
+  case COAP_EVENT_OSCORE_NO_PROTECTED_PAYLOAD:
+  case COAP_EVENT_OSCORE_NO_SECURITY:
+  case COAP_EVENT_OSCORE_INTERNAL_ERROR:
+  case COAP_EVENT_OSCORE_DECODE_ERROR:
+  case COAP_EVENT_OSCORE_SIGNATURE_FAILURE:
     quit = 1;
     break;
   case COAP_EVENT_DTLS_CONNECTED:
@@ -777,7 +784,10 @@ get_oscore_conf(void)
         return NULL;
       }
     }
-    fscanf(oscore_seq_num_fp, "%ju", &start_seq_num);
+    if (fscanf(oscore_seq_num_fp, "%ju", &start_seq_num) == 0) {
+      /* Must be empty */
+      start_seq_num = 0;
+    }
   }
   oscore_conf = coap_new_oscore_conf(file_mem,
                                      oscore_save_seq_num,
@@ -1498,12 +1508,10 @@ open_session(
         session = coap_new_client_session_oscore_pki(ctx, bind_addr, dst,
                                                      proto, dtls_pki,
                                                      oscore_conf);
-      }
-      else
+      } else
         session = coap_new_client_session_pki(ctx, bind_addr, dst, proto,
                                               dtls_pki);
-    }
-    else if (identity || key) {
+    } else if (identity || key) {
       /* Setup PSK session */
       coap_dtls_cpsk_t *dtls_psk = setup_psk(identity, identity_len,
                                                key, key_len);
@@ -1511,31 +1519,26 @@ open_session(
         session = coap_new_client_session_oscore_psk(ctx, bind_addr, dst,
                                                      proto, dtls_psk,
                                                      oscore_conf);
-      }
-      else
+      } else
         session = coap_new_client_session_psk2(ctx, bind_addr, dst, proto,
                                            dtls_psk);
-    }
-    else {
+    } else {
       /* No PKI or PSK defined, as encrypted, use PKI */
       coap_dtls_pki_t *dtls_pki = setup_pki(ctx);
       if (doing_oscore) {
         session = coap_new_client_session_oscore_pki(ctx, bind_addr, dst,
                                                      proto, dtls_pki,
                                                      oscore_conf);
-      }
-      else
+      } else
         session = coap_new_client_session_pki(ctx, bind_addr, dst, proto,
                                               dtls_pki);
     }
-  }
-  else {
+  } else {
     /* Non-encrypted session */
     if (doing_oscore) {
       session = coap_new_client_session_oscore(ctx, bind_addr, dst, proto,
                                                oscore_conf);
-    }
-    else
+    } else
       session = coap_new_client_session(ctx, bind_addr, dst, proto);
   }
   return session;

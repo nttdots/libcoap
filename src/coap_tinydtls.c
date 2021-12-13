@@ -1303,9 +1303,18 @@ int
 coap_oscore_group_is_supported(void) {
 #if defined(HAVE_OSCORE_GROUP)
   return 0;
-#else /* !HAVE_OSCORE_GROUP */
+#else  /* !HAVE_OSCORE_GROUP */
   return 0;
 #endif /* !HAVE_OSCORE_GROUP */
+}
+
+int
+coap_oscore_edhoc_is_supported(void) {
+#if defined(HAVE_OSCORE_EDHOC)
+  return 0;
+#else  /* !HAVE_OSCORE_EDHOC */
+  return 0;
+#endif /* !HAVE_OSCORE_EDHOC */
 }
 
 /*
@@ -1317,14 +1326,14 @@ static struct cipher_algs {
   cose_alg_t alg;
   u_int cipher_type;
 } ciphers[] = {
-  { COSE_Algorithm_AES_CCM_16_64_128, 1 },
+    {COSE_Algorithm_AES_CCM_16_64_128, 1},
 };
 
 static u_int
 get_cipher_alg(cose_alg_t alg) {
   size_t idx;
 
-  for (idx = 0; idx < sizeof(ciphers)/sizeof(struct cipher_algs); idx++) {
+  for (idx = 0; idx < sizeof(ciphers) / sizeof(struct cipher_algs); idx++) {
     if (ciphers[idx].alg == alg)
       return ciphers[idx].cipher_type;
   }
@@ -1341,14 +1350,14 @@ static struct hmac_algs {
   cose_alg_t alg;
   u_int hmac_type;
 } hmacs[] = {
-  { COSE_Algorithm_HMAC256_256, 1 },
+    {COSE_Algorithm_HMAC256_256, 1},
 };
 
 static u_int
 get_hmac_alg(cose_alg_t alg) {
   size_t idx;
 
-  for (idx = 0; idx < sizeof(hmacs)/sizeof(struct hmac_algs); idx++) {
+  for (idx = 0; idx < sizeof(hmacs) / sizeof(struct hmac_algs); idx++) {
     if (hmacs[idx].alg == alg)
       return hmacs[idx].hmac_type;
   }
@@ -1370,7 +1379,8 @@ int
 coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
                          coap_bin_const_t *data,
                          coap_bin_const_t *aad,
-                         uint8_t *result, size_t *max_result_len) {
+                         uint8_t *result,
+                         size_t *max_result_len) {
   int num_bytes;
   const coap_crypto_aes_ccm_t *ccm;
   dtls_ccm_params_t dtls_params;
@@ -1390,8 +1400,7 @@ coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
 
   ccm = &params->params.aes;
   if (*max_result_len < (data->length + ccm->tag_len)) {
-    coap_log(LOG_WARNING,
-             "coap_encrypt: result buffer too small\n");
+    coap_log(LOG_WARNING, "coap_encrypt: result buffer too small\n");
     return 0;
   }
 
@@ -1401,17 +1410,19 @@ coap_crypto_aead_encrypt(const coap_crypto_param_t *params,
 
   if (aad) {
     laad = *aad;
-  }
-  else {
+  } else {
     laad.s = NULL;
     laad.length = 0;
   }
 
   num_bytes = dtls_encrypt_params(&dtls_params,
-                                  data->s, data->length,
+                                  data->s,
+                                  data->length,
                                   result,
-                                  ccm->key.s, ccm->key.length,
-                                  laad.s, laad.length);
+                                  ccm->key.s,
+                                  ccm->key.length,
+                                  laad.s,
+                                  laad.length);
   if (num_bytes < 0) {
     return 0;
   }
@@ -1423,7 +1434,8 @@ int
 coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
                          coap_bin_const_t *data,
                          coap_bin_const_t *aad,
-                         uint8_t *result, size_t *max_result_len) {
+                         uint8_t *result,
+                         size_t *max_result_len) {
   int num_bytes;
   const coap_crypto_aes_ccm_t *ccm;
   dtls_ccm_params_t dtls_params;
@@ -1444,8 +1456,7 @@ coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
   ccm = &params->params.aes;
 
   if ((*max_result_len + ccm->tag_len) < data->length) {
-    coap_log(LOG_WARNING,
-             "coap_decrypt: result buffer too small\n");
+    coap_log(LOG_WARNING, "coap_decrypt: result buffer too small\n");
     return 0;
   }
 
@@ -1455,17 +1466,19 @@ coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
 
   if (aad) {
     laad = *aad;
-  }
-  else {
+  } else {
     laad.s = NULL;
     laad.length = 0;
   }
 
   num_bytes = dtls_decrypt_params(&dtls_params,
-                                  data->s, data->length,
+                                  data->s,
+                                  data->length,
                                   result,
-                                  ccm->key.s, ccm->key.length,
-                                  laad.s, laad.length);
+                                  ccm->key.s,
+                                  ccm->key.length,
+                                  laad.s,
+                                  laad.length);
   if (num_bytes < 0) {
     return 0;
   }
@@ -1474,9 +1487,10 @@ coap_crypto_aead_decrypt(const coap_crypto_param_t *params,
 }
 
 int
-coap_crypto_hmac(cose_alg_t alg, coap_bin_const_t *key,
-                 coap_bin_const_t *data, coap_bin_const_t **hmac)
-{
+coap_crypto_hmac(cose_alg_t alg,
+                 coap_bin_const_t *key,
+                 coap_bin_const_t *data,
+                 coap_bin_const_t **hmac) {
   dtls_hmac_context_t hmac_context;
   int num_bytes;
   coap_binary_t *dummy;
@@ -1485,8 +1499,7 @@ coap_crypto_hmac(cose_alg_t alg, coap_bin_const_t *key,
     return 0;
 
   if (get_hmac_alg(alg) == 0) {
-    coap_log(LOG_DEBUG,
-             "coap_crypto_hmac: algorithm %d not supported\n", alg);
+    coap_log(LOG_DEBUG, "coap_crypto_hmac: algorithm %d not supported\n", alg);
     return 0;
   }
 
@@ -1506,34 +1519,94 @@ coap_crypto_hmac(cose_alg_t alg, coap_bin_const_t *key,
   return 1;
 }
 
-#if defined(HAVE_OSCORE_GROUP)
+#if HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC
+
 int
-coap_crypto_read_pem_private_key(const char *filename, uint8_t *priv,
-                                 size_t *len)
-{
-  (void)filename;
-  (void)priv;
-  (void)len;
+coap_crypto_check_curve_alg(cose_curve_t alg) {
+  (void)alg;
   return 0;
 }
 
 int
-coap_crypto_read_pem_public_key(const char *filename, uint8_t *pub,
-                                size_t *len)
-{
+coap_crypto_read_pem_private_key(const char *filename,
+                                 coap_crypto_pri_key_t **private) {
   (void)filename;
-  (void)pub;
-  (void)len;
+  (void)private;
   return 0;
+}
+
+int
+coap_crypto_read_asn1_private_key(coap_bin_const_t *binary,
+                                  coap_crypto_pri_key_t **private) {
+  (void)binary;
+  (void)private;
+  return 0;
+}
+
+int
+coap_crypto_read_raw_private_key(cose_curve_t curve,
+                                 coap_bin_const_t *binary,
+                                 coap_crypto_pri_key_t **private) {
+  (void)curve;
+  (void)binary;
+  (void)private;
+  return 0;
+}
+
+coap_crypto_pri_key_t *
+coap_crypto_duplicate_private_key(coap_crypto_pri_key_t *key) {
+  (void)key;
+  return NULL;
+}
+
+void
+coap_crypto_delete_private_key(coap_crypto_pri_key_t *key) {
+  (void)key;
+}
+
+int
+coap_crypto_read_pem_public_key(const char *filename,
+                                coap_crypto_pub_key_t **public) {
+  (void)filename;
+  (void)public;
+  return 0;
+}
+
+int
+coap_crypto_read_asn1_public_key(coap_bin_const_t *binary,
+                                 coap_crypto_pub_key_t **public) {
+  (void)binary;
+  (void)public;
+  return 0;
+}
+
+int
+coap_crypto_read_raw_public_key(cose_curve_t curve,
+                                coap_bin_const_t *binary,
+                                coap_crypto_pub_key_t **public) {
+  (void)curve;
+  (void)binary;
+  (void)public;
+  return 0;
+}
+
+coap_crypto_pub_key_t *
+coap_crypto_duplicate_public_key(coap_crypto_pub_key_t *key) {
+  (void)key;
+  return NULL;
+}
+
+void
+coap_crypto_delete_public_key(coap_crypto_pub_key_t *key) {
+  (void)key;
 }
 
 int
 coap_crypto_sign(cose_curve_t curve,
                  coap_binary_t *signature,
                  coap_bin_const_t *ciphertext,
-                 coap_bin_const_t *private_key,
-                 coap_bin_const_t *public_key)
-{
+                 coap_crypto_pri_key_t *private_key,
+                 coap_crypto_pub_key_t *public_key) {
   (void)curve;
   (void)signature;
   (void)ciphertext;
@@ -1546,8 +1619,7 @@ int
 coap_crypto_verify(cose_curve_t curve,
                    coap_binary_t *signature,
                    coap_bin_const_t *plaintext,
-                   coap_bin_const_t *public_key)
-{
+                   coap_crypto_pub_key_t *public_key) {
   (void)curve;
   (void)signature;
   (void)plaintext;
@@ -1555,7 +1627,39 @@ coap_crypto_verify(cose_curve_t curve,
   return 0;
 }
 
-#endif /* HAVE_OSCORE_GROUP */
+int
+coap_crypto_gen_pkey(cose_curve_t curve,
+                     coap_bin_const_t **private,
+                     coap_bin_const_t **public) {
+  (void)curve;
+  (void)private;
+  (void)public;
+  return 0;
+}
+
+int
+coap_crypto_derive_shared_secret(cose_curve_t curve,
+                                 coap_bin_const_t *local_private,
+                                 coap_bin_const_t *peer_public,
+                                 coap_bin_const_t **shared_secret) {
+  (void)curve;
+  (void)local_private;
+  (void)peer_public;
+  (void)shared_secret;
+  return 0;
+}
+
+int
+coap_crypto_hash(cose_alg_t alg,
+                 const coap_bin_const_t *data,
+                 coap_bin_const_t **hash) {
+  (void)alg;
+  (void)data;
+  (void)hash;
+  return 0;
+}
+
+#endif /* HAVE_OSCORE_GROUP || HAVE_OSCORE_EDHOC */
 
 #endif /* HAVE_OSCORE */
 

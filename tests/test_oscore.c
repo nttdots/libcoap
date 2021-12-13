@@ -61,23 +61,23 @@ t_oscore_c_1_1(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
-  CU_ASSERT(CHECK_SAME(sender_key, ctx->osc_ctx->sender_context->sender_key));
+  CU_ASSERT(CHECK_SAME(sender_key, ctx->p_osc_ctx->sender_context->sender_key));
   CU_ASSERT(CHECK_SAME(recipient_key,
-                       ctx->osc_ctx->recipient_chain->recipient_key));
-  CU_ASSERT(CHECK_SAME(common_iv, ctx->osc_ctx->common_iv));
+                       ctx->p_osc_ctx->recipient_chain->recipient_key));
+  CU_ASSERT(CHECK_SAME(common_iv, ctx->p_osc_ctx->common_iv));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->recipient_chain->recipient_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->recipient_chain->recipient_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(recipient_nonce, &nonce));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->sender_context->sender_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->sender_context->sender_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(sender_nonce, &nonce));
 
   oscore_free_contexts(ctx);
@@ -118,23 +118,23 @@ t_oscore_c_1_2(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
-  CU_ASSERT(CHECK_SAME(sender_key, ctx->osc_ctx->sender_context->sender_key));
+  CU_ASSERT(CHECK_SAME(sender_key, ctx->p_osc_ctx->sender_context->sender_key));
   CU_ASSERT(CHECK_SAME(recipient_key,
-                       ctx->osc_ctx->recipient_chain->recipient_key));
-  CU_ASSERT(CHECK_SAME(common_iv, ctx->osc_ctx->common_iv));
+                       ctx->p_osc_ctx->recipient_chain->recipient_key));
+  CU_ASSERT(CHECK_SAME(common_iv, ctx->p_osc_ctx->common_iv));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->recipient_chain->recipient_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->recipient_chain->recipient_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(recipient_nonce, &nonce));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->sender_context->sender_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->sender_context->sender_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(sender_nonce, &nonce));
 
   oscore_free_contexts(ctx);
@@ -174,23 +174,23 @@ t_oscore_c_2_1(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
-  CU_ASSERT(CHECK_SAME(sender_key, ctx->osc_ctx->sender_context->sender_key));
+  CU_ASSERT(CHECK_SAME(sender_key, ctx->p_osc_ctx->sender_context->sender_key));
   CU_ASSERT(CHECK_SAME(recipient_key,
-                       ctx->osc_ctx->recipient_chain->recipient_key));
-  CU_ASSERT(CHECK_SAME(common_iv, ctx->osc_ctx->common_iv));
+                       ctx->p_osc_ctx->recipient_chain->recipient_key));
+  CU_ASSERT(CHECK_SAME(common_iv, ctx->p_osc_ctx->common_iv));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->recipient_chain->recipient_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->recipient_chain->recipient_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(recipient_nonce, &nonce));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->sender_context->sender_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->sender_context->sender_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(sender_nonce, &nonce));
 
   oscore_free_contexts(ctx);
@@ -230,23 +230,23 @@ t_oscore_c_2_2(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
-  CU_ASSERT(CHECK_SAME(sender_key, ctx->osc_ctx->sender_context->sender_key));
+  CU_ASSERT(CHECK_SAME(sender_key, ctx->p_osc_ctx->sender_context->sender_key));
   CU_ASSERT(CHECK_SAME(recipient_key,
-                       ctx->osc_ctx->recipient_chain->recipient_key));
-  CU_ASSERT(CHECK_SAME(common_iv, ctx->osc_ctx->common_iv));
+                       ctx->p_osc_ctx->recipient_chain->recipient_key));
+  CU_ASSERT(CHECK_SAME(common_iv, ctx->p_osc_ctx->common_iv));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->recipient_chain->recipient_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->recipient_chain->recipient_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(recipient_nonce, &nonce));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->sender_context->sender_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->sender_context->sender_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(sender_nonce, &nonce));
 
   oscore_free_contexts(ctx);
@@ -288,23 +288,23 @@ t_oscore_c_3_1(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
-  CU_ASSERT(CHECK_SAME(sender_key, ctx->osc_ctx->sender_context->sender_key));
+  CU_ASSERT(CHECK_SAME(sender_key, ctx->p_osc_ctx->sender_context->sender_key));
   CU_ASSERT(CHECK_SAME(recipient_key,
-                       ctx->osc_ctx->recipient_chain->recipient_key));
-  CU_ASSERT(CHECK_SAME(common_iv, ctx->osc_ctx->common_iv));
+                       ctx->p_osc_ctx->recipient_chain->recipient_key));
+  CU_ASSERT(CHECK_SAME(common_iv, ctx->p_osc_ctx->common_iv));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->recipient_chain->recipient_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->recipient_chain->recipient_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(recipient_nonce, &nonce));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->sender_context->sender_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->sender_context->sender_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(sender_nonce, &nonce));
 
   oscore_free_contexts(ctx);
@@ -346,23 +346,23 @@ t_oscore_c_3_2(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
-  CU_ASSERT(CHECK_SAME(sender_key, ctx->osc_ctx->sender_context->sender_key));
+  CU_ASSERT(CHECK_SAME(sender_key, ctx->p_osc_ctx->sender_context->sender_key));
   CU_ASSERT(CHECK_SAME(recipient_key,
-                       ctx->osc_ctx->recipient_chain->recipient_key));
-  CU_ASSERT(CHECK_SAME(common_iv, ctx->osc_ctx->common_iv));
+                       ctx->p_osc_ctx->recipient_chain->recipient_key));
+  CU_ASSERT(CHECK_SAME(common_iv, ctx->p_osc_ctx->common_iv));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->recipient_chain->recipient_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->recipient_chain->recipient_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(recipient_nonce, &nonce));
 
   cose_encrypt0_init(cose);
-  cose_encrypt0_set_key_id(cose, ctx->osc_ctx->sender_context->sender_id);
+  cose_encrypt0_set_key_id(cose, ctx->p_osc_ctx->sender_context->sender_id);
   cose_encrypt0_set_partial_iv(cose, NULL);
-  oscore_generate_nonce(cose, ctx->osc_ctx, nonce_buffer, 13);
+  oscore_generate_nonce(cose, ctx->p_osc_ctx, nonce_buffer, 13);
   CU_ASSERT(CHECK_SAME(sender_nonce, &nonce));
 
   oscore_free_contexts(ctx);
@@ -401,7 +401,7 @@ t_oscore_c_4(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 20);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
   result = coap_pdu_parse(COAP_PROTO_UDP, unprotected_coap_request,
                           sizeof(unprotected_coap_request), pdu);
@@ -412,9 +412,9 @@ t_oscore_c_4(void) {
   memset(session, 0, sizeof(coap_session_t));
   session->proto = COAP_PROTO_UDP;
   session->type = COAP_SESSION_TYPE_CLIENT;
-  session->recipient_ctx = ctx->osc_ctx->recipient_chain;
+  session->recipient_ctx = ctx->p_osc_ctx->recipient_chain;
 
-  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, 0);
+  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(osc_pdu);
 
   result = coap_pdu_encode_header(osc_pdu, session->proto);
@@ -464,7 +464,7 @@ t_oscore_c_5(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 20);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
   result = coap_pdu_parse(COAP_PROTO_UDP, unprotected_coap_request,
                           sizeof(unprotected_coap_request), pdu);
@@ -475,9 +475,9 @@ t_oscore_c_5(void) {
   memset(session, 0, sizeof(coap_session_t));
   session->proto = COAP_PROTO_UDP;
   session->type = COAP_SESSION_TYPE_CLIENT;
-  session->recipient_ctx = ctx->osc_ctx->recipient_chain;
+  session->recipient_ctx = ctx->p_osc_ctx->recipient_chain;
 
-  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, 0);
+  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(osc_pdu);
 
   result = coap_pdu_encode_header(osc_pdu, session->proto);
@@ -529,7 +529,7 @@ t_oscore_c_6(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 20);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
   result = coap_pdu_parse(COAP_PROTO_UDP, unprotected_coap_request,
                           sizeof(unprotected_coap_request), pdu);
@@ -540,9 +540,9 @@ t_oscore_c_6(void) {
   memset(session, 0, sizeof(coap_session_t));
   session->proto = COAP_PROTO_UDP;
   session->type = COAP_SESSION_TYPE_CLIENT;
-  session->recipient_ctx = ctx->osc_ctx->recipient_chain;
+  session->recipient_ctx = ctx->p_osc_ctx->recipient_chain;
 
-  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, 0);
+  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(osc_pdu);
 
   result = coap_pdu_encode_header(osc_pdu, session->proto);
@@ -603,7 +603,7 @@ t_oscore_c_7(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
   result = coap_pdu_parse(COAP_PROTO_UDP, protected_coap_request,
                           sizeof(protected_coap_request), incoming_pdu);
@@ -618,7 +618,7 @@ t_oscore_c_7(void) {
   memset(session, 0, sizeof(coap_session_t));
   session->proto = COAP_PROTO_UDP;
   session->type = COAP_SESSION_TYPE_SERVER;
-  session->recipient_ctx = ctx->osc_ctx->recipient_chain;
+  session->recipient_ctx = ctx->p_osc_ctx->recipient_chain;
   session->recipient_ctx->initial_state = 0;
   session->context = ctx;
 
@@ -637,7 +637,7 @@ t_oscore_c_7(void) {
   coap_delete_pdu(incoming_pdu);
 
   /* Now encrypt the server's response */
-  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, 0);
+  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(osc_pdu);
 
   result = coap_pdu_encode_header(osc_pdu, session->proto);
@@ -701,7 +701,7 @@ t_oscore_c_7_2(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 20);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
   result = coap_pdu_parse(COAP_PROTO_UDP, unprotected_coap_request,
                           sizeof(unprotected_coap_request), outgoing_pdu);
@@ -715,13 +715,13 @@ t_oscore_c_7_2(void) {
   memset(session, 0, sizeof(coap_session_t));
   session->proto = COAP_PROTO_UDP;
   session->type = COAP_SESSION_TYPE_CLIENT;
-  session->recipient_ctx = ctx->osc_ctx->recipient_chain;
+  session->recipient_ctx = ctx->p_osc_ctx->recipient_chain;
   session->recipient_ctx->initial_state = 0;
   session->context = ctx;
 
   /* Send request, so that all associations etc. are correctly set up */
 
-  osc_pdu = coap_oscore_new_pdu_encrypted(session, outgoing_pdu, NULL, 0);
+  osc_pdu = coap_oscore_new_pdu_encrypted(session, outgoing_pdu, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(osc_pdu);
 
   result = coap_pdu_encode_header(osc_pdu, session->proto);
@@ -799,7 +799,7 @@ t_oscore_c_8(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
   result = coap_pdu_parse(COAP_PROTO_UDP, protected_coap_request,
                           sizeof(protected_coap_request), incoming_pdu);
@@ -814,7 +814,7 @@ t_oscore_c_8(void) {
   memset(session, 0, sizeof(coap_session_t));
   session->proto = COAP_PROTO_UDP;
   session->type = COAP_SESSION_TYPE_SERVER;
-  session->recipient_ctx = ctx->osc_ctx->recipient_chain;
+  session->recipient_ctx = ctx->p_osc_ctx->recipient_chain;
   session->recipient_ctx->initial_state = 0;
   session->context = ctx;
 
@@ -833,7 +833,7 @@ t_oscore_c_8(void) {
   coap_delete_pdu(incoming_pdu);
 
   /* Now encrypt the server's response */
-  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, 1);
+  osc_pdu = coap_oscore_new_pdu_encrypted(session, pdu, NULL, NULL, 1);
   CU_ASSERT_PTR_NOT_NULL(osc_pdu);
 
   result = coap_pdu_encode_header(osc_pdu, session->proto);
@@ -898,7 +898,7 @@ t_oscore_c_8_2(void) {
   oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 20);
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   coap_context_oscore_server(ctx, oscore_conf);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
 
   result = coap_pdu_parse(COAP_PROTO_UDP, unprotected_coap_request,
                           sizeof(unprotected_coap_request), outgoing_pdu);
@@ -912,13 +912,13 @@ t_oscore_c_8_2(void) {
   memset(session, 0, sizeof(coap_session_t));
   session->proto = COAP_PROTO_UDP;
   session->type = COAP_SESSION_TYPE_CLIENT;
-  session->recipient_ctx = ctx->osc_ctx->recipient_chain;
+  session->recipient_ctx = ctx->p_osc_ctx->recipient_chain;
   session->recipient_ctx->initial_state = 0;
   session->context = ctx;
 
   /* Send request, so that all associations etc. are correctly set up */
 
-  osc_pdu = coap_oscore_new_pdu_encrypted(session, outgoing_pdu, NULL, 0);
+  osc_pdu = coap_oscore_new_pdu_encrypted(session, outgoing_pdu, NULL, NULL, 0);
   CU_ASSERT_PTR_NOT_NULL(osc_pdu);
 
   result = coap_pdu_encode_header(osc_pdu, session->proto);
@@ -954,7 +954,7 @@ t_oscore_c_8_2(void) {
 #if HAVE_OSCORE_EDHOC
 
 /************************************************************************
- ** See https://www.ietf.org/archive/id/draft-selander-lake-traces-01.txt
+ ** See https://www.ietf.org/archive/id/draft-selander-lake-traces-02.txt
  ************************************************************************/
 
 /*
@@ -969,8 +969,8 @@ t_edhoc_dh_c_m1(void)
     "use_edhoc,bool,true\n"
     "edhoc_method,integer,3\n"
     "edhoc_suite,integer,0\n"
-    "sender_private_key,hex,\"b3111998cb3f668663ed4251c78be6e95a4da127e4f6fee275e855d8d9dfd8ed\"\n"
-    "sender_public_key,hex,\"3aa9eb3201b3367b8c8be38d91e57a2b433e67888c86d2ac006a520842ed5037\"\n";
+    "test_s_private_key,hex,\"b3111998cb3f668663ed4251c78be6e95a4da127e4f6fee275e855d8d9dfd8ed\"\n"
+    "test_s_public_key,hex,\"3aa9eb3201b3367b8c8be38d91e57a2b433e67888c86d2ac006a520842ed5037\"\n";
  static const uint8_t message_1[] =
     { 0x03, 0x00, 0x58, 0x20, 0x3a, 0xa9, 0xeb, 0x32,
       0x01, 0xb3, 0x36, 0x7b, 0x8c, 0x8b, 0xe3, 0x8d,
@@ -1018,10 +1018,11 @@ t_edhoc_dh_c_m2(void)
     "recipient_id,hex,\"\"\n"
     "use_edhoc,bool,true\n"
     "edhoc_suite,integer,0\n"
-    "sender_private_key,hex,\"bd86eaf4065a836cd29d0f0691ca2a8ec13f51d1c45e1b4372c0cbe493cef6bd\"\n"
-    "sender_public_key,hex,\"255491b05a3989ff2d3ffea62098aab57c160f294ed948018b4190f7d161824e\"\n"
-    "test_private_key,hex,\"528b49c670f8fc16a2ad95c1885b2e24fb15762272792aa1cf051df5d93d3694\"\n"
-    "test_public_key,hex,\"e66f355990223c3f6caff862e407edd1174d0701a09ecd6a15cee2c6ce21aa50\"\n"
+    "sign_curve,integer,4\n"
+    "test_s_private_key,hex,\"bd86eaf4065a836cd29d0f0691ca2a8ec13f51d1c45e1b4372c0cbe493cef6bd\"\n"
+    "test_s_public_key,hex,\"255491b05a3989ff2d3ffea62098aab57c160f294ed948018b4190f7d161824e\"\n"
+    "test_r_private_key,hex,\"528b49c670f8fc16a2ad95c1885b2e24fb15762272792aa1cf051df5d93d3694\"\n"
+    "test_r_public_key,hex,\"e66f355990223c3f6caff862e407edd1174d0701a09ecd6a15cee2c6ce21aa50\"\n"
     "edhoc_dh_subject,ascii,\"example.edu\"\n";
  static const uint8_t message_1[] =
     { 0x03, 0x00, 0x58, 0x20, 0x3a, 0xa9, 0xeb, 0x32,
@@ -1046,7 +1047,7 @@ t_edhoc_dh_c_m2(void)
   coap_session_t *session;
   int result;
   edhoc_ctx_t *edhoc_ctx;
-  oscore_ctx_t *osc_ctx;
+  oscore_ctx_t *p_osc_ctx;
 
   memset(&ctx, 0, sizeof(ctx));
   coap_context_set_block_mode(ctx, COAP_BLOCK_USE_LIBCOAP);
@@ -1055,8 +1056,8 @@ t_edhoc_dh_c_m2(void)
   CU_ASSERT_PTR_NOT_NULL(oscore_conf);
   result = coap_context_oscore_server(ctx, oscore_conf);
   CU_ASSERT(result == 1);
-  CU_ASSERT_PTR_NOT_NULL(ctx->osc_ctx);
-  osc_ctx = ctx->osc_ctx;
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
+  p_osc_ctx = ctx->p_osc_ctx;
 
   session = coap_malloc_type(COAP_SESSION, sizeof(coap_session_t));
   CU_ASSERT_PTR_NOT_NULL(session);
@@ -1065,7 +1066,7 @@ t_edhoc_dh_c_m2(void)
   session->type = COAP_SESSION_TYPE_SERVER;
   session->context = ctx;
 
-  edhoc_ctx = edhoc_new_context_responder(session, osc_ctx);
+  edhoc_ctx = edhoc_new_context_responder(session, p_osc_ctx);
   CU_ASSERT_PTR_NOT_NULL(edhoc_ctx);
   CU_ASSERT_PTR_NOT_NULL(session->edhoc_ctx);
 
@@ -1083,6 +1084,143 @@ t_edhoc_dh_c_m2(void)
   coap_free(session);
 }
 
+/*
+ * 4.1 Initiator create signature EDHOC message_1
+ */
+static void
+t_edhoc_sig_c_m1(void)
+{
+ static const char conf_data[] =
+    /* 0x0e + bias 24 = 0x26 */
+    "recipient_id,hex,\"26\"\n"
+    "use_edhoc,bool,true\n"
+    "edhoc_method,integer,0\n"
+    "edhoc_suite,integer,0\n"
+    "test_s_private_key,hex,\"b026b168429b213d6b421df6abd0641cd66dca2ee7fd5977104bb238182e5ea6\"\n"
+    "test_s_public_key,hex,\"e31ec15ee8039427dfc4727ef17e2e0e69c54437f3c5828019ef0a6388c12552\"\n";
+ static const uint8_t message_1[] =
+    { 0x00, 0x00, 0x58, 0x20, 0xe3, 0x1e, 0xc1, 0x5e,
+      0xe8, 0x03, 0x94, 0x27, 0xdf, 0xc4, 0x72, 0x7e,
+      0xf1, 0x7e, 0x2e, 0x0e, 0x69, 0xc5, 0x44, 0x37,
+      0xf3, 0xc5, 0x82, 0x80, 0x19, 0xef, 0x0a, 0x63,
+      0x88, 0xc1, 0x25, 0x52, 0x0e };
+  const coap_str_const_t conf = { sizeof(conf_data)-1,
+                                  (const uint8_t *)conf_data };
+  coap_context_t ctx[1];
+  coap_oscore_conf_t *oscore_conf;
+  coap_binary_t *test_message_1;
+  coap_session_t *session;
+  edhoc_ctx_t *edhoc_ctx;
+
+  memset(&ctx, 0, sizeof(ctx));
+  oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
+  CU_ASSERT_PTR_NOT_NULL(oscore_conf);
+
+  session = coap_malloc_type(COAP_SESSION, sizeof(coap_session_t));
+  CU_ASSERT_PTR_NOT_NULL(session);
+  memset(session, 0, sizeof(coap_session_t));
+  session->proto = COAP_PROTO_UDP;
+  session->type = COAP_SESSION_TYPE_CLIENT;
+  session->context = ctx;
+
+  edhoc_ctx = edhoc_new_context_initiator(session, oscore_conf);
+  CU_ASSERT_PTR_NOT_NULL(edhoc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(session->edhoc_ctx);
+
+  test_message_1 = edhoc_create_message_1(session->edhoc_ctx);
+  CU_ASSERT(CHECK_SAME(message_1, test_message_1));
+
+  coap_delete_binary(test_message_1);
+  edhoc_delete_context(session->edhoc_ctx);
+  coap_free(session);
+}
+
+/*
+ * 4.2 Responder create signature EDHOC message_2
+ */
+static void
+t_edhoc_sig_c_m2(void)
+{
+ static const char conf_data[] =
+    "recipient_id,hex,\"32\"\n"
+    "use_edhoc,bool,true\n"
+    "edhoc_method,integer,0\n"
+    "edhoc_suite,integer,0\n"
+    "test_s_private_key,hex,\"db0684a8125466413e598dc267737f5fef0c5aa229faa155439f60085fd2536d\"\n"
+    "test_s_public_key,hex,\"e1739096c5c9582c1298918166d69548c78f7497b258c0856aa2019893a39425\"\n"
+    "test_r_private_key,hex,\"528b49c670f8fc16a2ad95c1885b2e24fb15762272792aa1cf051df5d93d3694\"\n"
+    "test_r_public_key,hex,\"e31ec15ee8039427dfc4727ef17e2e0e69c54437f3c5828019ef0a6388c12552\"\n"
+    "edhoc_dh_subject,ascii,\"example.edu\"\n";
+ static const uint8_t message_1[] =
+    { 0x00, 0x00, 0x58, 0x20, 0xe3, 0x1e, 0xc1, 0x5e,
+      0xe8, 0x03, 0x94, 0x27, 0xdf, 0xc4, 0x72, 0x7e,
+      0xf1, 0x7e, 0x2e, 0x0e, 0x69, 0xc5, 0x44, 0x37,
+      0xf3, 0xc5, 0x82, 0x80, 0x19, 0xef, 0x0a, 0x63,
+      0x88, 0xc1, 0x25, 0x52, 0x0e };
+ static const uint8_t message_2[] =
+    { 0x58, 0x70, 0xe1, 0x73, 0x90, 0x96, 0xc5, 0xc9,
+      0x58, 0x2c, 0x12, 0x98, 0x91, 0x81, 0x66, 0xd6,
+      0x95, 0x48, 0xc7, 0x8f, 0x74, 0x97, 0xb2, 0x58,
+      0xc0, 0x85, 0x6a, 0xa2, 0x01, 0x98, 0x93, 0xa3,
+      0x94, 0x25, 0x69, 0x0b, 0xdd, 0x9b, 0x15, 0x88,
+      0x51, 0x38, 0x49, 0x0d, 0x3b, 0x8a, 0xc7, 0x35,
+      0xe2, 0xad, 0x79, 0x12, 0xd5, 0x8d, 0x0e, 0x39,
+      0x95, 0xf2, 0xb5, 0x4e, 0x8e, 0x63, 0xe9, 0x0b,
+      0xc3, 0xc4, 0x26, 0x20, 0x30, 0x8c, 0x10, 0x50,
+      0x8d, 0x0f, 0x40, 0xc8, 0xf4, 0x8f, 0x87, 0xa4,
+      0x04, 0xcf, 0xc7, 0x8f, 0xb5, 0x22, 0xdb, 0x58,
+      0x8a, 0x12, 0xf3, 0xd8, 0xe7, 0x64, 0x36, 0xfc,
+      0x26, 0xa8, 0x1d, 0xae, 0xb7, 0x35, 0xc3, 0x4f,
+      0xeb, 0x1f, 0x72, 0x54, 0xbd, 0xa2, 0xb7, 0xd0,
+      0x14, 0xf3, 0x32 };
+  const coap_str_const_t conf = { sizeof(conf_data)-1,
+                                  (const uint8_t *)conf_data };
+  coap_bin_const_t m_1 = { sizeof(message_1),
+                           (const uint8_t *)message_1 };
+  coap_context_t ctx[1];
+  coap_oscore_conf_t *oscore_conf;
+  coap_binary_t *test_message_2;
+  coap_session_t *session;
+  int result;
+  edhoc_ctx_t *edhoc_ctx;
+  oscore_ctx_t *p_osc_ctx;
+
+return;
+coap_set_log_level(COAP_LOG_OSCORE);
+  memset(&ctx, 0, sizeof(ctx));
+  coap_context_set_block_mode(ctx, COAP_BLOCK_USE_LIBCOAP);
+
+  oscore_conf = coap_new_oscore_conf(conf, NULL, NULL, 0);
+  CU_ASSERT_PTR_NOT_NULL(oscore_conf);
+  result = coap_context_oscore_server(ctx, oscore_conf);
+  CU_ASSERT(result == 1);
+  CU_ASSERT_PTR_NOT_NULL(ctx->p_osc_ctx);
+  p_osc_ctx = ctx->p_osc_ctx;
+
+  session = coap_malloc_type(COAP_SESSION, sizeof(coap_session_t));
+  CU_ASSERT_PTR_NOT_NULL(session);
+  memset(session, 0, sizeof(coap_session_t));
+  session->proto = COAP_PROTO_UDP;
+  session->type = COAP_SESSION_TYPE_SERVER;
+  session->context = ctx;
+
+  edhoc_ctx = edhoc_new_context_responder(session, p_osc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(edhoc_ctx);
+  CU_ASSERT_PTR_NOT_NULL(session->edhoc_ctx);
+
+  result = edhoc_receive_message_1(session->edhoc_ctx, &m_1);
+  CU_ASSERT(result == 0);
+
+  test_message_2 = edhoc_create_message_2(session->edhoc_ctx, &m_1);
+  CU_ASSERT_PTR_NOT_NULL(test_message_2);
+  CU_ASSERT(CHECK_SAME(message_2, test_message_2));
+
+  coap_delete_binary(test_message_2);
+  oscore_free_contexts(ctx);
+  edhoc_delete_context(session->edhoc_ctx);
+  coap_delete_all_resources(ctx);
+  coap_free(session);
+}
 
 #endif /* HAVE_OSCORE_EDHOC */
 
@@ -1143,6 +1281,8 @@ t_init_oscore_tests(void) {
   if (coap_oscore_edhoc_is_supported()) {
     EDHOC_TEST(t_edhoc_dh_c_m1);
     EDHOC_TEST(t_edhoc_dh_c_m2);
+    EDHOC_TEST(t_edhoc_sig_c_m1);
+    EDHOC_TEST(t_edhoc_sig_c_m2);
   }
 #endif /* HAVE_OSCORE_EDHOC */
 
