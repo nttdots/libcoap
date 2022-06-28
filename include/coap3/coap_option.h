@@ -1,5 +1,5 @@
 /*
- * option.h -- helpers for handling options in CoAP PDUs
+ * coap_option.h -- helpers for handling options in CoAP PDUs
  *
  * Copyright (C) 2010-2013 Olaf Bergmann <bergmann@tzi.org>
  *
@@ -10,7 +10,7 @@
  */
 
 /**
- * @file option.h
+ * @file coap_option.h
  * @brief Helpers for handling options in CoAP PDUs
  */
 

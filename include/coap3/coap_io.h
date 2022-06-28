@@ -19,7 +19,7 @@
 
 #include <sys/types.h>
 
-#include "address.h"
+#include "coap_address.h"
 
 #ifdef RIOT_VERSION
 #include "net/gnrc.h"

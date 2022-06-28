@@ -1,4 +1,4 @@
-/* address.c -- representation of network addresses
+/* coap_address.c -- representation of network addresses
  *
  * Copyright (C) 2015-2016,2019 Olaf Bergmann <bergmann@tzi.org>
  *
@@ -9,7 +9,7 @@
  */
 
 /**
- * @file address.c
+ * @file coap_address.c
  * @brief Handling of network addresses
  */
 

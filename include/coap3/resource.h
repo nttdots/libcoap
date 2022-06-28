@@ -22,12 +22,12 @@
 #define COAP_RESOURCE_CHECK_TIME 2
 #endif /* COAP_RESOURCE_CHECK_TIME */
 
-#include "async.h"
+#include "coap_async.h"
 #include "block.h"
 #include "str.h"
 #include "pdu.h"
 #include "net.h"
-#include "subscribe.h"
+#include "coap_subscribe.h"
 
 /**
  * @ingroup application_api
